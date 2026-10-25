@@ -91,7 +91,7 @@ async function live(){
 // ---------- تطبیق نام تیم ----------
 const fold=s=>s.toLowerCase().replace(/æ/g,'ae').replace(/[øö]/g,'o').replace(/ß/g,'ss').replace(/ł/g,'l').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9 ]/g,' ');
 const STOP=new Set('fc afc cf sc ac as fk sk bk if real club the city united cd rc ad us kaa krc rsc'.split(' '));
-const AL=[['crvena zvezda','red star'],['inter milan','internazionale'],['athletic bilbao','athletic club'],['olympiacos','olympiakos'],['ofk belgrade','ofk beograd'],['heart of midlothian','hearts']];
+const AL=[['crvena zvezda','red star'],['inter milan','internazionale'],['athletic bilbao','athletic club'],['olympiacos','olympiakos'],['ofk belgrade','ofk beograd'],['heart of midlothian','hearts'],['prague','praha']];
 const TC={};const tk=s=>TC[s]||(TC[s]=(f=>(f+' '+AL.filter(a=>f.includes(a[0])).map(a=>a[1]).join(' ')).split(/\s+/).filter(w=>w.length>2&&!STOP.has(w)))(fold(s)));
 const same=(a,b)=>{const x=tk(a),y=tk(b);return x.some(w=>y.some(v=>v==w||(w.length>4&&v.length>4&&w.slice(0,5)==v.slice(0,5))))};
 
@@ -136,7 +136,7 @@ function view(b){
  <div class="bar">${['g','b','o','r','n'].map(k=>`<span style="flex:${cnt(k)};background:${COL[k]}"></span>`).join('')}</div>
  <div class="acts">${b.arch?`<button class="x" data-a="un" data-b="${b.id}">بازگردانی</button>`:`<button class="x" data-a="ar" data-b="${b.id}">بایگانی</button>`}<button class="x" data-a="del" data-b="${b.id}">حذف</button></div></div>
  ${L.map(z=>{const x=z.x,l=z.l;
-  const sc=x&&x.st!='pre'?`<b>${x.h} - ${x.a}</b><small>${x.st=='post'?'پایان':esc(x.clk||'زنده')}</small>`:`<b>–</b><small>${fmtT(x?.t)}</small>`;
+  const sc=x&&x.st!='pre'?`<b>${x.h} - ${x.a}</b><small>${x.st=='post'?'پایان':esc(x.clk||'زنده')}</small>`:`<b>–</b><small>${x?fmtT(x.t):(at?'در منابع پیدا نشد':'…')}</small>`;
   const bd=x&&!x.fin&&!x.man&&x.n?(x.cf?'<small class="w">⚠ اختلاف منابع</small>':x.n>1?`<small class="v">✓ ${x.n} منبع</small>`:'<small>۱ منبع</small>'):x?.man?'<small>دستی</small>':'';
   return `<div class="leg c-${z.c} ${x?.st=='in'?'live':''}"><span class="dot"></span>
   <div><div class="nm">${esc(l.home)} – ${esc(l.away)}</div><div class="pk">پیش‌بینی: ${esc(pickTxt(l.pick,l))} (${(+l.odds).toFixed(2)})</div></div>
