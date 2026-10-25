@@ -41,6 +41,10 @@ main{display:grid;grid-template-columns:repeat(auto-fill,minmax(420px,1fr));gap:
 dialog{background:var(--bg);color:var(--tx);border:1px solid var(--line);border-radius:12px;width:min(560px,94vw)}
 dialog::backdrop{background:#000a}dialog form>*{display:block;width:100%;margin-bottom:10px}
 textarea{direction:ltr;font-family:ui-monospace,Menlo,monospace;font-size:12px}
+[hidden]{display:none!important}
+.row{display:flex;gap:6px;margin-bottom:8px}.row>*{flex:1;min-width:0}.row>button{flex:none}
+.pub .bar2{display:none}.acts{flex-wrap:wrap}
+.sc{max-width:170px}.sc small{white-space:normal}
 </style>
 </head>
 <body>
@@ -62,11 +66,18 @@ textarea{direction:ltr;font-family:ui-monospace,Menlo,monospace;font-size:12px}
 <dialog id="lg"><form id="lf"><b>ورود</b><input id="pw" type="password" placeholder="رمز" autocomplete="current-password" required><button class="pri">ورود</button></form></dialog>
 <dialog id="ad"><form onsubmit="return false">
  <b>افزودن بلیت</b>
- <select id="md"><option value="p">چسباندن متن بلیت (یک یا چند بلیت از سایت شرط‌بندی)</option><option value="m">ورود دستی</option></select>
- <div id="mf" hidden><input id="nm" placeholder="نام بلیت" style="margin-bottom:8px"><input id="sk" placeholder="مبلغ (USDT)" style="margin-bottom:8px"><input id="od" placeholder="ضریب کل (خالی = حاصل‌ضرب پاها)"></div>
+ <select id="md"><option value="p">چسباندن متن بلیت (از سایت شرط‌بندی)</option><option value="f">فرم دستی، بازی به بازی</option><option value="m">متنی دستی (هر خط یک بازی)</option></select>
+ <div id="mf" hidden><input id="nm" placeholder="نام بلیت" style="margin-bottom:8px"><input id="sk" placeholder="مبلغ (USDT)" style="margin-bottom:8px"><input id="od" placeholder="ضریب کل (خالی = حاصل‌ضرب ضرایب)"></div>
+ <div id="ff" hidden>
+  <div class="row"><input id="fh" placeholder="تیم میزبان"><input id="fa" placeholder="تیم میهمان"><input id="fo" placeholder="ضریب"></div>
+  <div class="row"><select id="fc"></select><input id="fv" placeholder="مقدار"><button type="button" id="fadd">+ شرط</button></div>
+  <div class="sub" id="fcur"></div>
+  <button type="button" id="fleg">افزودن این بازی به بلیت</button>
+  <div class="sub" id="flist"></div>
+ </div>
  <textarea id="tx" rows="12"></textarea>
  <div class="sub" id="hint"></div>
- <div style="display:flex;gap:8px"><button type="button" class="pri" id="ok" style="width:auto">افزودن</button><button type="button" id="cl" style="width:auto">بستن</button></div>
+ <div style="display:flex;gap:8px"><button type="button" class="pri" id="ok" style="width:auto">ثبت بلیت</button><button type="button" id="cl" style="width:auto">بستن</button></div>
 </form></dialog>
 
 <script>
@@ -74,6 +85,9 @@ const BASE=location.pathname.startsWith('/betslip')?'/betslip':'';
 const ls={g:k=>{try{return localStorage.getItem(k)}catch(e){return null}},s:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}}};
 const $=s=>document.querySelector(s);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const PUB=new URLSearchParams(location.search).get('s');
+const SN={espn:'ESPN',sofa:'Sofascore',fd:'football-data',apif:'API-Football',tsdb:'TheSportsDB'};
+let OPEN;try{OPEN=new Set(JSON.parse(ls.g('open')||'[]'))}catch(e){OPEN=new Set()}
 let KEY=ls.g('pw')||'',D={bets:[]},LV=[],SRC=[],tab='act',tmr,dirty=0,at=null,started=0;
 
 // ---------- شبکه ----------
@@ -106,45 +120,67 @@ function cons(l){
  const H=LV.filter(e=>same(l.home,e.home)&&same(l.away,e.away));if(!H.length)return null;
  const g={};H.forEach(e=>(g[e.h+'-'+e.a]=g[e.h+'-'+e.a]||[]).push(e));
  const G=Object.values(g).sort((a,b)=>b.length-a.length||a[0].p-b[0].p),r=G[0][0];
- return{h:r.h,a:r.a,st:r.st,clk:r.clk,min:r.min,t:r.t&&new Date(r.t),n:new Set(G[0].map(e=>e.s)).size,cf:G.length>1}}
+ return{h:r.h,a:r.a,st:r.st,clk:r.clk,min:r.min,t:r.t&&new Date(r.t),src:G.map(g=>[[...new Set(g.map(e=>SN[e.s]||e.s))].join('+'),g[0].h+'-'+g[0].a]),cf:G.length>1}}
 
 // ---------- ارزیابی پیش‌بینی ----------
+// کد هر شرط: 1 2 X 1X X2 12 | O2.5 U2.5 HO1.5 AU0.5 | BY BN | T3 | S2-1 | AH1-1.5  ؛ ترکیب با & (مثل 1&O2.5)
+function chk(p,h,a){const g=h+a,d=h-a;let m;
+ if(p=='1')return[d>0,1-d,0];if(p=='2')return[d<0,1+d,0];if(p=='X')return[d==0,Math.abs(d),0];
+ if(p=='1X')return[d>=0,-d,0];if(p=='X2')return[d<=0,d,0];if(p=='12')return[d!=0,d?0:1,0];
+ if(p=='BY')return[h>0&&a>0,(h==0)+(a==0),'up'];if(p=='BN')return[!(h>0&&a>0),0,'down'];
+ if(m=p.match(/^([HA]?)([OU])([\d.]+)$/)){const v=m[1]=='H'?h:m[1]=='A'?a:g,L=+m[3];return m[2]=='O'?[v>L,Math.floor(L)+1-v,'up']:[v<L,0,'down']}
+ if(m=p.match(/^T(\d+)$/)){const N=+m[1];return[g==N,Math.abs(N-g),g>N?'down':0]}
+ if(m=p.match(/^S(\d+)-(\d+)$/)){const x=+m[1],y=+m[2];return[h==x&&a==y,Math.max(0,x-h)+Math.max(0,y-a),h>x||a>y?'down':0]}
+ if(m=p.match(/^AH([12])([+-][\d.]+)$/)){const e=m[1]=='1'?h+ +m[2]-a:a+ +m[2]-h;return[e>0,Math.floor(-e)+1,0]}
+ return[false,9,0]}
+function ev1(p,x){const fin=x.st=='post',[ok,need,mono]=chk(p,x.h,x.a);
+ if(fin)return ok?['g',0]:['r',1];
+ if(mono=='up'&&ok)return['g',0];if(mono=='down'&&!ok)return['r',1];
+ if(ok)return['b',0];
+ return need<=1||need*25<=90-(x.min||0)?['o',0]:['r',0]}
 function ev(p,x){
  if(!x||x.st=='pre')return['n',0];
- const h=x.h,a=x.a,g=h+a,d=h-a,fin=x.st=='post';let ok,need;
- if(p=='1'){ok=d>0;need=1-d}else if(p=='2'){ok=d<0;need=1+d}else if(p=='X'){ok=d==0;need=Math.abs(d)}
- else if(p=='1X'){ok=d>=0;need=-d}else if(p=='X2'){ok=d<=0;need=d}
- else{const L=+p.slice(1);
-  if(p[0]=='O'){if(g>L)return['g',0];need=Math.floor(L)+1-g}
-  else{if(g>L)return['r',1];return[fin?'g':'b',0]}}
- if(ok)return[fin?'g':'b',0];
- if(fin)return['r',1];
- return need<=1||need*25<=90-(x.min||0)?['o',0]:['r',0]}
-const pickTxt=(p,l)=>({1:'برد '+l.home,2:'برد '+l.away,X:'مساوی','1X':l.home+' یا مساوی',X2:'مساوی یا '+l.away})[p]||((p[0]=='O'?'بالای ':'زیر ')+p.slice(1)+' گل');
+ const R=p.split('&').map(q=>ev1(q,x)),C=R.map(r=>r[0]);
+ if(R.some(r=>r[1]))return['r',1];
+ if(C.every(c=>c=='g'))return['g',0];
+ if(C.every(c=>c=='g'||c=='b'))return['b',0];
+ return[C.includes('r')?'r':'o',0]}
+const pt1=(p,l)=>{let m;const H=l.home,A=l.away,F={1:'برد '+H,2:'برد '+A,X:'مساوی','1X':H+' یا مساوی',X2:'مساوی یا '+A,12:'بدون مساوی',BY:'هر دو تیم گل می‌زنند',BN:'حداقل یک تیم گل نمی‌زند'};
+ if(F[p])return F[p];
+ if(m=p.match(/^([HA]?)([OU])([\d.]+)$/))return(m[1]=='H'?'گل‌های '+H+' ':m[1]=='A'?'گل‌های '+A+' ':'مجموع گل ')+(m[2]=='O'?'بالای ':'زیر ')+m[3];
+ if(m=p.match(/^T(\d+)$/))return'دقیقاً '+m[1]+' گل';
+ if(m=p.match(/^S(\d+)-(\d+)$/))return'نتیجهٔ دقیق '+m[1]+'-'+m[2];
+ if(m=p.match(/^AH([12])(.+)$/))return'هندیکپ '+(m[1]==1?H:A)+' ('+m[2]+')';return p};
+const pickTxt=(p,l)=>p.split('&').map(q=>pt1(q,l)).join(' + ');
 const fmtT=t=>t&&!isNaN(t)?t.toLocaleString('fa-IR',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}):'زمان نامشخص';
 const COL={g:'var(--g)',b:'var(--b)',o:'var(--o)',r:'var(--r)',n:'var(--line)'};
 
 // ---------- نمایش ----------
-function view(b){
+function view(b,pub){
  const L=b.legs.map((l,i)=>{const x=cons(l),[c,dead]=ev(l.pick,x);
-  if(x&&x.st=='post'&&!x.man&&!x.fin&&!l.fin&&!l.ov){l.fin={h:x.h,a:x.a,t:x.t&&x.t.toISOString?x.t.toISOString():null};dirty=1}
+  if(!pub&&x&&x.st=='post'&&!x.man&&!x.fin&&!l.fin&&!l.ov){l.fin={h:x.h,a:x.a,t:x.t&&x.t.toISOString?x.t.toISOString():null};dirty=1}
   return{l,i,x,c,dead}});
  L.sort((p,q)=>(p.x?.st=='in'?0:1)-(q.x?.st=='in'?0:1)||(p.x?.t||8e15)-(q.x?.t||8e15));
  const cnt=k=>L.filter(z=>z.c==k).length,lost=L.some(z=>z.dead),won=L.every(z=>z.c=='g'),nl=L.filter(z=>z.x?.st=='in').length;
  b._st=lost?'lost':won?'won':'open';
  const chip=lost?['از دست رفته','var(--r)']:won?['برنده شد','var(--g)']:nl?[nl+' بازی زنده','var(--b)']:['در انتظار','var(--gray)'];
- return `<section class="bet ${lost?'lost':won?'won':''}"><div class="bh">
- <div class="t"><span>${esc(b.name)}</span><span class="chip" style="color:${chip[1]}">${chip[0]}</span></div>
- <div class="meta"><span>ضریب <b>${(+b.odds).toLocaleString()}</b></span><span>مبلغ <b>${b.stake}</b></span><span>برد احتمالی <b>${(+b.win).toLocaleString()}</b> USDT</span>${b.cash!=null?`<span>کش‌اوت <b>${b.cash}</b></span>`:''}</div>
- <div class="meta"><span style="color:var(--g)">درست ${cnt('g')}</span><span style="color:var(--b)">مطابق ${cnt('b')}</span><span style="color:var(--o)">نزدیک ${cnt('o')}</span><span style="color:var(--r)">اشتباه ${cnt('r')}</span><span>از ${L.length}</span></div>
- <div class="bar">${['g','b','o','r','n'].map(k=>`<span style="flex:${cnt(k)};background:${COL[k]}"></span>`).join('')}</div>
- <div class="acts">${b.arch?`<button class="x" data-a="un" data-b="${b.id}">بازگردانی</button>`:`<button class="x" data-a="ar" data-b="${b.id}">بایگانی</button>`}<button class="x" data-a="del" data-b="${b.id}">حذف</button></div></div>
- ${L.map(z=>{const x=z.x,l=z.l;
+ const open=pub||OPEN.has(b.id),id=b.id;
+ const row=z=>{const x=z.x,l=z.l;
   const sc=x&&x.st!='pre'?`<b>${x.h} - ${x.a}</b><small>${x.st=='post'?'پایان':esc(x.clk||'زنده')}</small>`:`<b>–</b><small>${x?fmtT(x.t):(at?'در منابع پیدا نشد':'…')}</small>`;
-  const bd=x&&!x.fin&&!x.man&&x.n?(x.cf?'<small class="w">⚠ اختلاف منابع</small>':x.n>1?`<small class="v">✓ ${x.n} منبع</small>`:'<small>۱ منبع</small>'):x?.man?'<small>دستی</small>':'';
+  const bd=x?.man?'<small>منبع: دستی</small>':x?.fin?'<small>منبع: ذخیره‌شده</small>':x?.src?(x.cf?'<small class="w">⚠ اختلاف: '+x.src.map(q=>esc(q[0])+' '+q[1]).join(' | ')+'</small>':`<small class="${x.src[0][0].includes('+')?'v':''}">${x.src[0][0].includes('+')?'✓ ':''}${esc(x.src[0][0])}</small>`):'';
   return `<div class="leg c-${z.c} ${x?.st=='in'?'live':''}"><span class="dot"></span>
   <div><div class="nm">${esc(l.home)} – ${esc(l.away)}</div><div class="pk">پیش‌بینی: ${esc(pickTxt(l.pick,l))} (${(+l.odds).toFixed(2)})</div></div>
-  <div class="sc" tabindex="0" role="button" title="ورود دستی نتیجه" data-b="${b.id}" data-l="${z.i}">${sc}${bd}</div></div>`}).join('')}</section>`}
+  <div class="sc"${pub?'':` tabindex="0" role="button" title="ورود دستی نتیجه" data-b="${id}" data-l="${z.i}"`}>${sc}${bd}</div></div>`};
+ const meta=pub?`<span>ضریب <b>${(+b.odds).toLocaleString()}</b></span>`:`<span>ضریب <b>${(+b.odds).toLocaleString()}</b></span><span>مبلغ <b>${b.stake}</b></span><span>برد احتمالی <b>${(+b.win).toLocaleString()}</b> USDT</span>${b.cash!=null?`<span>کش‌اوت <b>${b.cash}</b></span>`:''}`;
+ const acts=pub?'':`<div class="acts"><button class="x" data-a="tg" data-b="${id}" aria-expanded="${open}">${open?'بستن جزئیات ▴':'جزئیات بازی‌ها ▾'}</button>
+  <button class="x" data-a="sh" data-b="${id}">${b.share?'کپی لینک اشتراک':'اشتراک‌گذاری'}</button>${b.share?`<button class="x" data-a="us" data-b="${id}">لغو اشتراک</button>`:''}
+  ${b.arch?`<button class="x" data-a="un" data-b="${id}">بازگردانی</button>`:`<button class="x" data-a="ar" data-b="${id}">بایگانی</button>`}<button class="x" data-a="del" data-b="${id}">حذف</button></div>`;
+ return `<section class="bet ${lost?'lost':won?'won':''}"><div class="bh">
+ <div class="t"><span>${esc(b.name)}${b.share&&!pub?' 🔗':''}</span><span class="chip" style="color:${chip[1]}">${chip[0]}</span></div>
+ <div class="meta">${meta}</div>
+ <div class="meta"><span style="color:var(--g)">درست ${cnt('g')}</span><span style="color:var(--b)">مطابق ${cnt('b')}</span><span style="color:var(--o)">نزدیک ${cnt('o')}</span><span style="color:var(--r)">اشتباه ${cnt('r')}</span><span>از ${L.length}</span></div>
+ <div class="bar">${['g','b','o','r','n'].map(k=>`<span style="flex:${cnt(k)};background:${COL[k]}"></span>`).join('')}</div>${acts}</div>
+ ${open?L.map(row).join(''):''}</section>`}
 
 function stats(){
  const H=D.bets.filter(b=>b.arch&&(b.res=='won'||b.res=='lost')),W=H.filter(b=>b.res=='won');
@@ -154,10 +190,11 @@ function stats(){
  <div class="sub">سود/زیان<b style="color:${rt-st>=0?'var(--g)':'var(--r)'}">${(rt-st).toFixed(2)}</b></div></div>`}
 
 function render(){
- $('#upd').textContent=(at?'آخرین به‌روزرسانی '+at.toLocaleTimeString('fa-IR')+' — ':'')+SRC.map(s=>s.n+(s.ok?' ✓'+s.c:' ✗')).join('  ');
+ $('#upd').textContent=(at?'آخرین به‌روزرسانی '+at.toLocaleTimeString('fa-IR')+' — ':'')+SRC.map(s=>(SN[s.n]||s.n)+(s.ok?' ✓'+s.c:' ✗')).join('  ');
+ if(PUB){$('#app').innerHTML=view(D.bets[0],1);return}
  $('#t1').classList.toggle('on',tab=='act');$('#t2').classList.toggle('on',tab=='his');
  const bets=D.bets.filter(b=>tab=='act'?!b.arch:!!b.arch).sort((a,b)=>tab=='act'?a.created-b.created:b.arch-a.arch);
- $('#app').innerHTML=(tab=='his'?stats():'')+(bets.length?bets.map(view).join(''):'<p class="sub emp">بلیتی نیست. با «افزودن بلیت» شروع کنید.</p>');
+ $('#app').innerHTML=(tab=='his'?stats():'')+(bets.length?bets.map(b=>view(b)).join(''):'<p class="sub emp">بلیتی نیست. با «افزودن بلیت» شروع کنید.</p>');
  if(dirty){dirty=0;save()}}
 
 // ---------- ورودی بلیت ----------
@@ -167,47 +204,75 @@ function toPick(sel,h){const s=sel.trim(),m=s.match(/^(over|under)\s+([\d.]+)$/i
  const p=s.split(/ or /i);if(p.length==2)return/^draw$/i.test(p[0].trim())?'X2':'1X';
  return fold(s).trim()==fold(h).trim()?'1':'2'}
 function parseBlock(t){
- const L=t.split('\n').map(s=>s.trim()).filter(Boolean),legs=[];
- L.forEach((s,i)=>{if(i>=3&&/^(1x2|double chance|asian total)$/i.test(L[i-1])&&/^\d+(\.\d+)?$/.test(L[i-2])&&s.includes(' - ')){
+ const L=t.split('\n').map(s=>s.trim().replace(/^[*•]\s*/,'')).filter(Boolean),legs=[];
+ L.forEach((s,i)=>{if(i>=3&&/^(1x2|double chance|asian total)$/i.test(L[i-1])&&/^\d+(\.\d+)?(\(\d+:\d+\))?$/.test(L[i-2])&&s.includes(' - ')){
   const k=s.indexOf(' - '),home=s.slice(0,k).trim(),away=s.slice(k+3).trim();
-  legs.push({home,away,pick:toPick(L[i-3],home),odds:+L[i-2]})}});
+  legs.push({home,away,pick:toPick(L[i-3],home),odds:parseFloat(L[i-2])})}});
  if(!legs.length)return null;
  const w=L.findIndex(s=>/^Potential win/i.test(s)),n=w>=0?L.slice(w+1).filter(s=>/^[\d.,]+$/.test(s)).map(num):[];
  const c=L.findIndex(s=>/^Cash out$/i.test(s)),cv=c>=0?num(L[c+1]):NaN;
  const odds=n[0]||+legs.reduce((p,l)=>p*l.odds,1).toFixed(2),stake=n[1]||1;
- return{name:L.find(s=>/^multi\s+\d+/i.test(s))||'بلیت',stake,odds,win:n[2]||+(stake*odds).toFixed(2),cash:isNaN(cv)?null:cv,legs}}
+ return{name:L.find(s=>/^multi\s+\d+/i.test(s))||'multi '+legs.length,stake,odds,win:n[2]||+(stake*odds).toFixed(2),cash:isNaN(cv)?null:cv,legs}}
 function parseManual(t){
  const legs=t.split('\n').map(s=>s.split('|').map(x=>x.trim())).filter(a=>a.length==3&&a[0].includes(' - ')).map(a=>{const k=a[0].indexOf(' - ');
   return{home:a[0].slice(0,k).trim(),away:a[0].slice(k+3).trim(),pick:a[1].toUpperCase(),odds:num(a[2])}});
  if(!legs.length)return null;
  const odds=num($('#od').value)||+legs.reduce((p,l)=>p*l.odds,1).toFixed(2),stake=num($('#sk').value)||1;
  return{name:$('#nm').value||'بلیت',stake,odds,win:+(stake*odds).toFixed(2),cash:null,legs}}
-function setMode(){const m=$('#md').value=='m';$('#mf').hidden=!m;
- $('#hint').textContent=m?'هر خط: Home - Away | پیش‌بینی | ضریب   (پیش‌بینی: 1، X، 2، 1X، X2، O2.5، U3.5)':'متن بلیت را همان‌طور که از سایت کپی کرده‌اید بچسبانید؛ چند بلیت پشت‌سرهم هم قبول است.'}
+const CT=[['1','برد میزبان'],['2','برد میهمان'],['X','مساوی'],['1X','میزبان یا مساوی'],['X2','مساوی یا میهمان'],['12','بدون مساوی'],['O','مجموع گل بالای … (مقدار: 2.5)'],['U','مجموع گل زیر … (مقدار: 3.5)'],['HO','گل میزبان بالای …'],['HU','گل میزبان زیر …'],['AO','گل میهمان بالای …'],['AU','گل میهمان زیر …'],['BY','هر دو تیم گل می‌زنند'],['BN','حداقل یک تیم گل نمی‌زند'],['T','تعداد دقیق کل گل … (مقدار: 3)'],['S','نتیجهٔ دقیق … (مقدار: 2-1)'],['AH1','هندیکپ میزبان … (مقدار: -1.5)'],['AH2','هندیکپ میهمان … (مقدار: +0.5)']];
+const needV=c=>!['1','2','X','1X','X2','12','BY','BN'].includes(c);
+let CUR=[],DL=[];
+function mk(c,v){v=v.trim();if(!needV(c))return c;if(!v)return null;
+ if(c=='S')return/^\d+-\d+$/.test(v)?'S'+v:null;if(!/^[+-]?[\d.]+$/.test(v))return null;
+ return c.startsWith('AH')?c+(/^[+-]/.test(v)?v:'+'+v):c+v}
+const fl=()=>({home:$('#fh').value.trim()||'میزبان',away:$('#fa').value.trim()||'میهمان'});
+function flist(){$('#fcur').textContent=CUR.length?'شرط‌ها (همه باید برقرار باشند): '+CUR.map(p=>pt1(p,fl())).join(' + '):'';
+ $('#flist').innerHTML=DL.map((l,i)=>`${i+1}. ${esc(l.home)} – ${esc(l.away)}: ${esc(pickTxt(l.pick,l))} (${l.odds}) <a href="#" data-r="${i}">حذف</a>`).join('<br>')}
+function mkBet(legs){const odds=num($('#od').value)||+legs.reduce((p,l)=>p*l.odds,1).toFixed(2),stake=num($('#sk').value)||1;
+ return{name:$('#nm').value||'multi '+legs.length,stake,odds,win:+(stake*odds).toFixed(2),cash:null,legs}}
+function setMode(){const m=$('#md').value;$('#mf').hidden=m=='p';$('#ff').hidden=m!='f';$('#tx').hidden=m=='f';
+ $('#hint').textContent=m=='f'?'برای هر بازی: نام تیم‌ها، ضریب و یک یا چند شرط (ترکیبی) را بزنید، سپس «افزودن این بازی».':m=='m'?'هر خط: Home - Away | پیش‌بینی | ضریب (کدها: 1، X، 2، 1X، X2، O2.5، U3.5، BY، T3، S2-1، 1&O2.5 …)':'متن بلیت را همان‌طور که از سایت کپی کرده‌اید بچسبانید؛ چند بلیت پشت‌سرهم هم قبول است.'}
 
 // ---------- رویدادها ----------
-$('#md').onchange=setMode;$('#add').onclick=()=>{setMode();$('#ad').showModal()};$('#cl').onclick=()=>$('#ad').close();
-$('#ok').onclick=()=>{const t=$('#tx').value;
- const R=$('#md').value=='m'?[parseManual(t)]:t.split(/^\s*Active\s*$/mi).map(parseBlock);
- const ok=R.filter(Boolean);if(!ok.length){$('#hint').textContent='هیچ بازی‌ای تشخیص داده نشد؛ قالب متن را بررسی کنید.';return}
+CT.forEach(c=>$('#fc').add(new Option(c[1],c[0])));
+$('#fc').onchange=()=>{$('#fv').hidden=!needV($('#fc').value)};
+$('#fadd').onclick=()=>{const p=mk($('#fc').value,$('#fv').value);if(!p){$('#hint').textContent='مقدار شرط نامعتبر است.';return}CUR.push(p);$('#fv').value='';flist()};
+$('#fleg').onclick=()=>{const o=num($('#fo').value),{home,away}=fl();
+ if(!$('#fh').value.trim()||!$('#fa').value.trim()||!(o>1)||!CUR.length){$('#hint').textContent='نام هر دو تیم، ضریب (بزرگ‌تر از ۱) و حداقل یک شرط لازم است.';return}
+ DL.push({home,away,pick:CUR.join('&'),odds:o});CUR=[];['fh','fa','fo','fv'].forEach(k=>$('#'+k).value='');flist()};
+$('#flist').addEventListener('click',e=>{const r=e.target.dataset.r;if(r==null)return;e.preventDefault();DL.splice(+r,1);flist()});
+$('#md').onchange=setMode;$('#add').onclick=()=>{setMode();$('#fc').onchange();$('#ad').showModal()};$('#cl').onclick=()=>$('#ad').close();
+$('#ok').onclick=()=>{const m=$('#md').value;let R;
+ if(m=='f'){if(!DL.length){$('#hint').textContent='حداقل یک بازی به بلیت اضافه کنید.';return}R=[mkBet(DL)]}
+ else R=m=='m'?[parseManual($('#tx').value)]:$('#tx').value.split(/^\s*Active\s*$/mi).map(parseBlock);
+ const ok=R.filter(Boolean);if(!ok.length){$('#hint').textContent='هیچ بازی‌ای تشخیص داده نشد؛ قالب را بررسی کنید.';return}
  ok.forEach((b,i)=>D.bets.push({...b,id:Date.now().toString(36)+i+Math.random().toString(36).slice(2,5),created:Date.now()+i}));
- $('#tx').value='';$('#ad').close();save();live()};
+ $('#tx').value='';DL=[];CUR=[];flist();$('#ad').close();save();live()};
 $('#t1').onclick=()=>{tab='act';render()};$('#t2').onclick=()=>{tab='his';render()};$('#rf').onclick=live;
 $('#exp').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(D,null,1)],{type:'application/json'}));a.download='betslip-backup.json';a.click()};
 $('#lf').onsubmit=e=>{e.preventDefault();KEY=$('#pw').value;ls.s('pw',KEY);$('#lg').close();init()};
+const link=t=>location.origin+BASE+'/?s='+t;
+const copy=u=>navigator.clipboard?navigator.clipboard.writeText(u).then(()=>alert('لینک کپی شد:\n'+u),()=>prompt('لینک:',u)):prompt('لینک:',u);
 $('#app').addEventListener('click',e=>{
+ if(PUB)return;
  const s=e.target.closest('.sc'),a=e.target.closest('[data-a]');
  if(s){const b=D.bets.find(x=>x.id==s.dataset.b),l=b.legs[s.dataset.l];
   const v=prompt(l.home+' – '+l.away+'\nنتیجه (مثال 2-1 زنده، 2-1 f پایان‌یافته). خالی = حذف دستی، x = حذف نتیجهٔ ذخیره‌شده',l.ov?l.ov.h+'-'+l.ov.a:'');
   if(v===null)return;const m=v.match(/(\d+)\s*-\s*(\d+)\s*(f?)/i);
   if(m)l.ov={h:+m[1],a:+m[2],f:!!m[3]};else{delete l.ov;if(v.trim()=='x')delete l.fin}
   save();render();return}
- if(a){const b=D.bets.find(x=>x.id==a.dataset.b);
-  if(a.dataset.a=='del'){if(!confirm('این بلیت حذف شود؟'))return;D.bets=D.bets.filter(x=>x!=b)}
-  if(a.dataset.a=='ar'){if(b._st=='open'&&!confirm('هنوز تمام نشده؛ بایگانی شود؟'))return;b.arch=Date.now();b.res=b._st}
-  if(a.dataset.a=='un'){delete b.arch;delete b.res}
+ if(a){const b=D.bets.find(x=>x.id==a.dataset.b),k=a.dataset.a;
+  if(k=='tg'){OPEN.has(b.id)?OPEN.delete(b.id):OPEN.add(b.id);ls.s('open',JSON.stringify([...OPEN]));render();return}
+  if(k=='sh'){if(!b.share){b.share=[...crypto.getRandomValues(new Uint8Array(12))].map(x=>x.toString(16).padStart(2,'0')).join('');save()}copy(link(b.share));render();return}
+  if(k=='us'){if(!confirm('لینک عمومی این بلیت غیرفعال شود؟'))return;delete b.share}
+  if(k=='del'){if(!confirm('این بلیت حذف شود؟'))return;D.bets=D.bets.filter(x=>x!=b)}
+  if(k=='ar'){if(b._st=='open'&&!confirm('هنوز تمام نشده؛ بایگانی شود؟'))return;b.arch=Date.now();b.res=b._st}
+  if(k=='un'){delete b.arch;delete b.res}
   save();render()}});
-init();
+async function initPub(){try{const j=await(await fetch(BASE+'/api/share?t='+encodeURIComponent(PUB))).json();if(!j.bet)throw 0;
+ D={bets:[{...j.bet,id:'pub'}]};document.title=j.bet.name+' – Betslip';document.body.classList.add('pub');render();await live();setInterval(live,60000)}
+ catch(e){$('#app').innerHTML='<p class="sub emp">این لینک معتبر نیست یا اشتراک‌گذاری آن لغو شده است.</p>'}}
+PUB?initPub():init();
 </script>
 </body>
 </html>
