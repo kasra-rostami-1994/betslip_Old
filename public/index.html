@@ -83,9 +83,13 @@ const banner=m=>{const e=$('#err');e.style.display=m?'block':'none';e.textConten
 const save=()=>{clearTimeout(tmr);tmr=setTimeout(()=>api('/api/data',{method:'PUT',body:JSON.stringify(D)}).then(()=>banner('')).catch(e=>banner('ذخیره نشد: '+e.message)),700)};
 async function init(){try{D=await api('/api/data');render();await live();if(!started){started=1;setInterval(live,60000)}}
  catch(e){if(e.u){$('#lg').showModal()}else banner('خطا در اتصال به سرور یا دیتابیس: '+e.message)}}
+let needMore=0;
+const unmatched=()=>D.bets.some(b=>!b.arch&&b.legs.some(l=>!l.fin&&!l.ov&&!LV.some(e=>same(l.home,e.home)&&same(l.away,e.away))));
 async function live(){
  if(D.bets.some(b=>!b.arch&&b.legs.some(l=>!l.fin&&!l.ov))){
-  try{const j=await(await fetch(BASE+'/api/live')).json();LV=j.events;SRC=j.sources;at=new Date()}catch(e){banner('دریافت نتایج زنده ناموفق بود')}}
+  try{const j=await(await fetch(BASE+'/api/live'+(needMore?'?apif=1':''))).json();LV=j.events;SRC=j.sources;at=new Date();
+   const nm=unmatched();if(nm&&!needMore){needMore=1;return live()}needMore=nm?1:0}
+  catch(e){banner('دریافت نتایج زنده ناموفق بود')}}
  render()}
 
 // ---------- تطبیق نام تیم ----------

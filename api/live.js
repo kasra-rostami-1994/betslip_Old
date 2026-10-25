@@ -1,4 +1,5 @@
 // نتایج را هم‌زمان از چند منبع می‌گیرد و یکدست می‌کند؛ تطبیق و رأی‌گیری در کلاینت انجام می‌شود.
+const { kv } = require('./_lib');
 const iso = (d) => d.toISOString().slice(0, 10);
 const get = async (u, h) => { const r = await fetch(u, { headers: h, signal: AbortSignal.timeout(7000) }); if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); };
 const LEAGUES = ['tur.1','tur.2','cze.1','bel.1','ned.1','ned.2','por.1','fra.1','fra.2','ger.1','ger.2','ita.1','ita.2','esp.1','esp.2','eng.1','eng.2','eng.3','aut.1','den.1','gre.1','nor.1','pol.1','rou.1','sco.1','srb.1','swe.1','sui.1','irn.1'];
@@ -31,6 +32,21 @@ module.exports = async (q, s) => {
       if (!process.env.FOOTBALL_DATA_KEY) throw new Error('بدون کلید');
       const j = await get(`https://api.football-data.org/v4/matches?dateFrom=${iso(days[0])}&dateTo=${iso(days[3])}`, { 'X-Auth-Token': process.env.FOOTBALL_DATA_KEY });
       return j.matches.map((m) => ({ home: m.homeTeam.name, away: m.awayTeam.name, t: m.utcDate, st: m.status == 'FINISHED' ? 'post' : ['IN_PLAY', 'PAUSED'].includes(m.status) ? 'in' : 'pre', h: m.score.fullTime.home ?? 0, a: m.score.fullTime.away ?? 0, clk: m.status == 'PAUSED' ? 'HT' : '', min: 0 }));
+    },
+    apif: async () => { // اختیاری: API-Football (پوشش گسترده). فقط وقتی کلاینت بازی پیدانشده دارد صدا زده می‌شود و در Redis کش می‌شود.
+      const key = process.env.APIFOOTBALL_KEY;
+      if (!key) throw new Error('بدون کلید');
+      if (!q.query || q.query.apif !== '1') return [];
+      const ck = 'betslip:apif';
+      try { const c = await kv(['GET', ck]); if (c) return JSON.parse(c); } catch (x) {}
+      const js = await Promise.all([days[0], days[1]].map((d) => get('https://v3.football.api-sports.io/fixtures?date=' + iso(d), { 'x-apisports-key': key })));
+      js.forEach((j) => { const er = j.errors; if (er && Object.keys(er).length) throw new Error(Object.values(er)[0]); });
+      const out = js.flatMap((j) => (j.response || []).map((f) => {
+        const S = f.fixture.status.short;
+        return { home: f.teams.home.name, away: f.teams.away.name, t: f.fixture.date, st: ['FT', 'AET', 'PEN'].includes(S) ? 'post' : ['NS', 'TBD', 'PST', 'CANC', 'ABD', 'AWD', 'WO'].includes(S) ? 'pre' : 'in', h: f.goals.home ?? 0, a: f.goals.away ?? 0, clk: S, min: f.fixture.status.elapsed || 0 };
+      }));
+      try { await kv(['SET', ck, JSON.stringify(out), 'EX', String(+process.env.APIF_CACHE_SEC || 600)]); } catch (x) {}
+      return out;
     },
     tsdb: async () => (await Promise.all(days.map((d) => get('https://www.thesportsdb.com/api/v1/json/3/eventsday.php?s=Soccer&d=' + iso(d))))).flatMap((j) => (j.events || []).map((e) => {
       const S = e.strStatus || '';
