@@ -2,26 +2,7 @@
 // حالت آزمایشی: کاربر واردشده با ?me=1 فقط برای خودش اجرا می‌کند و خلاصه را همان لحظه می‌گیرد.
 const { kv, user } = require('./_lib');
 const C = require('./_core');
-const EM = { g: '🟢', b: '🔵', o: '🟠', r: '🔴', n: '⚪' };
-const TZ = process.env.TIMEZONE || 'Europe/Istanbul';
-const hm = (t) => new Date(t).toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit', timeZone: TZ });
-const send = async (cfg, text) => {
-  const parts = []; let cur = '';
-  text.split('\n\n').forEach((b) => { if (cur && (cur + '\n\n' + b).length > 3800) { parts.push(cur); cur = b; } else cur = cur ? cur + '\n\n' + b : b; });
-  if (cur) parts.push(cur);
-  let ok = true;
-  for (const p of parts) { const j = await (await fetch('https://api.telegram.org/bot' + cfg.token + '/sendMessage', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ chat_id: cfg.chat, text: p }) })).json(); ok = ok && !!j.ok; }
-  return ok;
-};
-const pick = (l, E) => {
-  if (l.ov) return { h: l.ov.h, a: l.ov.a, w: l.ov.w, st: l.ov.f ? 'post' : 'in', min: l.ov.m || 45 };
-  if (l.fin) return { h: l.fin.h, a: l.fin.a, w: l.fin.w, st: 'post' };
-  const bs = {};
-  E.filter((e) => C.mt(l, e)).forEach((e) => { const d = Math.abs(new Date(e.t) - Date.now()) || 0; if (!bs[e.s] || d < bs[e.s].d) bs[e.s] = { e, d }; });
-  const v = Object.values(bs).map((o) => o.e).sort((a, b) => a.p - b.p)[0];
-  if (!v) return null;
-  return v.st == 'post' && v.t && new Date(v.t) > Date.now() + 6e4 ? { ...v, st: 'pre' } : v;
-};
+const { EM, hm, send, pick } = require('./_tg');
 module.exports = async (q, s) => {
   const cron = !!process.env.CRON_SECRET && q.headers.authorization === 'Bearer ' + process.env.CRON_SECRET;
   const me = cron ? null : await user(q);
@@ -31,7 +12,8 @@ module.exports = async (q, s) => {
     const users = cron ? (await kv(['SMEMBERS', 'betslip:tg'])) || [] : [me], force = !cron;
     const out = { users: users.length, events: 0, games: 0, live: 0, missing: 0, sent: 0 };
     if (!users.length) return s.json(out);
-    const base = process.env.SITE_BASE || 'https://' + q.headers.host;
+    let base = process.env.SITE_BASE;
+    if (!base) { const c0 = JSON.parse((await kv(['GET', 'betslip:tgc:' + users[0]])) || 'null'); base = (c0 && c0.base) || 'https://' + q.headers.host; }
     const E = (await (await fetch(base + '/api/live?apif=1')).json()).events || [];
     out.events = E.length;
     const now = Date.now();

@@ -114,7 +114,7 @@ textarea{direction:ltr;font-family:ui-monospace,Menlo,monospace;font-size:12px}
  <select id="tsm"><option value="0">خلاصهٔ دوره‌ای: خاموش</option><option value="15">خلاصهٔ وضعیت هر ۱۵ دقیقه</option><option value="30">خلاصهٔ وضعیت هر ۳۰ دقیقه</option><option value="60">خلاصهٔ وضعیت هر ساعت</option></select>
  <div class="sub" id="tlr"></div><div class="sub w" id="tmsg"></div>
  <div class="row"><button type="button" class="pri" id="tsv">ذخیره</button><button type="button" id="tts">پیام آزمایشی</button></div>
- <div class="row"><button type="button" id="trn">اجرای آزمایشی اعلان‌ها</button><button type="button" id="tcl">بستن</button></div></form></dialog>
+ <div class="row"><button type="button" id="trn">اجرای آزمایشی اعلان‌ها</button><button type="button" id="thk">فعال‌سازی دستورات ربات</button></div><div class="row"><button type="button" id="tcl">بستن</button></div></form></dialog>
 <div class="bulk" id="bulk" hidden></div>
 
 <script>
@@ -425,6 +425,7 @@ const sbody=test=>JSON.stringify({token:$('#tt').value,chat:$('#tc').value,on:$(
 const tsend=async test=>{try{const j=await api('/api/settings',{method:'PUT',body:sbody(test)});$('#tmsg').textContent=test?j.msg:'ذخیره شد.'}catch(x){$('#tmsg').textContent=x.message}};
 $('#trn').onclick=async()=>{$('#tmsg').textContent='در حال اجرا…';try{await api('/api/settings',{method:'PUT',body:sbody(false)});const j=await api('/api/notify?me=1');
  $('#tmsg').textContent=`رویداد منابع: ${j.events} · بازی‌های بلیت‌های فعال: ${j.games} (زنده ${j.live}، پیدا‌نشده ${j.missing}) · پیام ارسال‌شده: ${j.sent}`}catch(x){$('#tmsg').textContent=x.message}};
+$('#thk').onclick=async()=>{$('#tmsg').textContent='در حال فعال‌سازی…';try{const j=await api('/api/settings',{method:'PUT',body:JSON.stringify({...JSON.parse(sbody(false)),hook:true,base:location.origin+BASE})});$('#tmsg').textContent=j.msg}catch(x){$('#tmsg').textContent=x.message}};
 $('#tsv').onclick=()=>tsend(false);$('#tts').onclick=()=>tsend(true);$('#tcl').onclick=()=>$('#sg').close();
 $('#exp').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(D,null,1)],{type:'application/json'}));a.download='betslip-backup.json';a.click()};
 $('#bulk').onclick=e=>{const k=e.target.dataset.k;if(!k)return;
@@ -500,7 +501,7 @@ $('#ml').onclick=e=>{const b=e.target.closest('[data-i]');if(!b)return;const E=M
 {const a=document.createElement('link');a.rel='manifest';a.href=BASE+'/manifest.webmanifest';document.head.append(a);
  const b=document.createElement('link');b.rel='apple-touch-icon';b.href=BASE+'/icon-192.png';document.head.append(b)}
 if('serviceWorker'in navigator)navigator.serviceWorker.register(BASE+'/sw.js').catch(()=>{});
-const VER='1.4.0';$('#ver').textContent='Betslip - Update: '+VER;
+const VER='1.5.0';$('#ver').textContent='Betslip - Update: '+VER;
 PUB?initPub():init();
 </script>
 </body>
