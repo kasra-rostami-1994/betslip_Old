@@ -5,11 +5,11 @@ const get = async (u, h) => { const r = await fetch(u, { headers: h, signal: Abo
 const LEAGUES = ['tur.1','tur.2','cze.1','bel.1','ned.1','ned.2','por.1','fra.1','fra.2','ger.1','ger.2','ita.1','ita.2','esp.1','esp.2','eng.1','eng.2','eng.3','aut.1','den.1','gre.1','nor.1','pol.1','rou.1','sco.1','srb.1','swe.1','sui.1','irn.1'];
 const espnEv = (e) => {
   const comp = e.competitions[0], c = comp.competitors, H = c.find((x) => x.homeAway == 'home'), A = c.find((x) => x.homeAway == 'away'), S = e.status;
-  const ext = S.period > 2 || /AET|PEN|EXTRA/i.test(S.type.name || '');
+  const nm0 = S.type.name || '', bad = /POSTPON|CANCEL|ABANDON|FORFEIT/i.test(nm0) || (S.type.state == 'post' && S.type.completed === false), ext = !bad && (S.period > 2 || /AET|PEN|EXTRA/i.test(nm0));
   const reg = (x) => (x.linescores || []).slice(0, 2).reduce((p, y) => p + (+y.value || 0), 0);
   const use = ext && (H.linescores || []).length >= 2;
   const goals = (comp.details || []).filter((d) => d.scoringPlay).map((d) => ({ m: (d.clock && d.clock.displayValue) || '', n: (d.athletesInvolved && d.athletesInvolved[0] && d.athletesInvolved[0].displayName) || '', f: d.ownGoal ? 'OG' : d.penaltyKick ? 'P' : '' }));
-  return { home: H.team.displayName, away: A.team.displayName, t: e.date, st: S.type.state, h: use ? reg(H) : +H.score || 0, a: use ? reg(A) : +A.score || 0, clk: S.type.shortDetail, min: parseInt(S.displayClock) || 0, over: ext ? 1 : 0, aet: ext && S.type.state == 'post' ? 1 : 0, w: H.winner ? 1 : A.winner ? 2 : 0, goals };
+  return { home: H.team.displayName, away: A.team.displayName, t: e.date, st: bad ? 'pre' : S.type.state, h: use ? reg(H) : +H.score || 0, a: use ? reg(A) : +A.score || 0, clk: bad ? nm0.replace('STATUS_', '') : S.type.shortDetail, pp: bad ? 1 : 0, min: parseInt(S.displayClock) || 0, over: ext ? 1 : 0, aet: ext && S.type.state == 'post' ? 1 : 0, w: H.winner ? 1 : A.winner ? 2 : 0, goals };
 };
 module.exports = async (q, s) => {
   const days = [-1, 0, 1, 2].map((n) => new Date(Date.now() + n * 864e5));
@@ -53,7 +53,7 @@ module.exports = async (q, s) => {
     },
     tsdb: async () => (await Promise.all(days.map((d) => get('https://www.thesportsdb.com/api/v1/json/3/eventsday.php?s=Soccer&d=' + iso(d))))).flatMap((j) => (j.events || []).map((e) => {
       const S = e.strStatus || '';
-      return { home: e.strHomeTeam, away: e.strAwayTeam, t: e.strTimestamp ? e.strTimestamp.replace(/Z?$/, 'Z') : null, st: /^(FT|AET|PEN|Match Finished)/i.test(S) ? 'post' : (!S || /^(NS|Not Started|Postponed)/i.test(S)) ? 'pre' : 'in', h: +e.intHomeScore || 0, a: +e.intAwayScore || 0, clk: S, min: 0 };
+      return { home: e.strHomeTeam, away: e.strAwayTeam, t: e.strTimestamp ? e.strTimestamp.replace(/Z?$/, 'Z') : null, st: /^(FT|AET|PEN|Match Finished)/i.test(S) ? 'post' : (!S || /^(NS|TBD)|not started|postpon|cancel|abandon|susp/i.test(S)) ? 'pre' : 'in', h: +e.intHomeScore || 0, a: +e.intAwayScore || 0, clk: S, min: 0 };
     })),
   };
   const names = Object.keys(src), res = await Promise.allSettled(names.map((n) => src[n]()));
