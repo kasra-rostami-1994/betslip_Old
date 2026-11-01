@@ -17,7 +17,7 @@ const live = (A) => {
 };
 const TL = { 5: '🔴 بحرانی', 4: '🟠 نزدیک', 3: '⚪ در انتظار', 2: '🔵 مطابق پیش‌بینی' };
 const risk = (A) => {
-  const R = Object.values(A.games).map((g) => { const al = g.rows.filter((r) => A.st[r.b.id] != 'lost'), t = !al.length ? 0 : al.some((r) => r.c == 'r') ? 5 : al.some((r) => r.c == 'o') ? 4 : al.some((r) => r.c == 'n') ? 3 : al.some((r) => r.c == 'b') ? 2 : 1, open = al.filter((r) => r.c != 'g'); return { g, t, open, pot: open.reduce((s, r) => s + (+r.b.win || 0), 0) }; }).filter((a) => a.t >= 2).sort((p, q) => q.t - p.t || q.pot - p.pot);
+  const R = Object.values(A.games).map((g) => { const al = g.rows.filter((r) => A.st[r.b.id] != 'lost'), t = !al.length ? 0 : al.some((r) => r.c == 'r') ? 5 : al.some((r) => r.c == 'o') ? 4 : al.some((r) => r.c == 'n') ? 3 : al.some((r) => r.c == 'b') ? 2 : 1, open = al.filter((r) => r.c != 'g'); return { g, t, ns: !g.x || g.x.st == 'pre' ? 1 : 0, open, pot: open.reduce((s, r) => s + (+r.b.win || 0), 0) }; }).filter((a) => a.t >= 2).sort((p, q) => p.ns - q.ns || (p.ns ? t0(p.g) - t0(q.g) : q.t - p.t || q.pot - p.pot));
   if (!R.length) return '✅ بازی پرخطری وجود ندارد.';
   return '⚠️ ریسک بازی‌ها:\n\n' + R.slice(0, 12).map((a) => `${TL[a.t]} · ${a.g.l.home} – ${a.g.l.away} ${gm(a.g.x)}\n   ${a.open.length} بلیت · پتانسیل ${a.pot.toFixed(2)} USDT\n` + a.open.slice(0, 6).map((r) => `   ${EM[r.c]} ${r.b.name}: ${C.pickTxt(r.l.pick, r.l)}`).join('\n')).join('\n\n');
 };
