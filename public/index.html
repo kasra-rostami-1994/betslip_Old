@@ -104,9 +104,17 @@ textarea{direction:ltr;font-family:ui-monospace,Menlo,monospace;font-size:12px}
  <div class="row"><button type="button" id="ovc">حذف نتیجهٔ دستی</button><button type="button" id="ovr">بازنشانی نتیجهٔ ذخیره‌شده</button></div>
 </form></dialog>
 <dialog id="co"><form onsubmit="return false"><b id="cot"></b><input id="cov" inputmode="decimal" placeholder="پیشنهاد کش‌اوت سایت (USDT)"><div id="cor" class="sub" style="line-height:2"></div><button type="button" id="cox">بستن</button></form></dialog>
-<dialog id="sg"><form onsubmit="return false"><b>اعلان تلگرام</b><div class="sub">گل، پایان بازی و برنده/بازنده شدن بلیت‌ها را به تلگرام می‌فرستد. توکن را از BotFather و Chat ID را از ربات خودتان بگیرید (راهنما در README).</div>
- <input id="tt" type="password" placeholder="توکن ربات"><input id="tc" placeholder="Chat ID"><label class="sub"><input type="checkbox" id="ton" style="width:auto"> اعلان‌ها فعال باشد</label><div class="sub w" id="tmsg"></div>
- <div class="row"><button type="button" class="pri" id="tsv">ذخیره</button><button type="button" id="tts">ارسال پیام آزمایشی</button><button type="button" id="tcl">بستن</button></div></form></dialog>
+<dialog id="sg"><form onsubmit="return false"><b>اعلان تلگرام</b>
+ <div class="sub">توکن را از BotFather و Chat ID را از getUpdates بگیرید. بعد از ذخیره، زمان‌بند (cron) باید /api/notify را هر چند دقیقه صدا بزند.</div>
+ <input id="tt" type="password" placeholder="توکن ربات"><input id="tc" placeholder="Chat ID">
+ <label class="sub"><input type="checkbox" id="ton" style="width:auto"> اعلان‌های خودکار فعال باشد</label>
+ <label class="sub"><input type="checkbox" id="tst" style="width:auto"> شروع بازی</label>
+ <label class="sub"><input type="checkbox" id="tgl" style="width:auto"> گل (با نام گل‌زن و دقیقه)</label>
+ <label class="sub"><input type="checkbox" id="ten" style="width:auto"> پایان بازی</label>
+ <select id="tsm"><option value="0">خلاصهٔ دوره‌ای: خاموش</option><option value="15">خلاصهٔ وضعیت هر ۱۵ دقیقه</option><option value="30">خلاصهٔ وضعیت هر ۳۰ دقیقه</option><option value="60">خلاصهٔ وضعیت هر ساعت</option></select>
+ <div class="sub" id="tlr"></div><div class="sub w" id="tmsg"></div>
+ <div class="row"><button type="button" class="pri" id="tsv">ذخیره</button><button type="button" id="tts">پیام آزمایشی</button></div>
+ <div class="row"><button type="button" id="trn">اجرای آزمایشی اعلان‌ها</button><button type="button" id="tcl">بستن</button></div></form></dialog>
 <div class="bulk" id="bulk" hidden></div>
 
 <script>
@@ -408,8 +416,15 @@ $('#fi').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)re
   add.forEach((b,i)=>{b.id=b.id||Date.now().toString(36)+i;D.bets.push(b)});
   (j.trash||[]).forEach(b=>{if(b&&b.id&&!ids.has(b.id)&&!add.includes(b)){D.trash=D.trash||[];D.trash.push(b)}});
   save();render();live()}catch(x){banner('فایل JSON معتبر نیست.')}};
-$('#stg').onclick=async()=>{try{const j=await api('/api/settings');$('#tc').value=j.chat||'';$('#ton').checked=!!j.on;$('#tt').value='';$('#tt').placeholder=j.hasToken?'توکن ذخیره شده؛ برای تغییر، توکن جدید را وارد کنید':'توکن ربات';$('#tmsg').textContent='';$('#sg').showModal()}catch(x){banner('خطا: '+x.message)}};
-const tsend=async test=>{try{const j=await api('/api/settings',{method:'PUT',body:JSON.stringify({token:$('#tt').value,chat:$('#tc').value,on:$('#ton').checked,test})});$('#tmsg').textContent=test?j.msg:'ذخیره شد.'}catch(x){$('#tmsg').textContent=x.message}};
+$('#stg').onclick=async()=>{try{const j=await api('/api/settings');
+ $('#tc').value=j.chat||'';$('#ton').checked=!!j.on;$('#tt').value='';$('#tt').placeholder=j.hasToken?'توکن ذخیره شده؛ برای تغییر، توکن جدید را وارد کنید':'توکن ربات';
+ $('#tst').checked=j.st!==false;$('#tgl').checked=j.gl!==false;$('#ten').checked=j.en!==false;$('#tsm').value=String(j.sum??15);$('#tmsg').textContent='';
+ $('#tlr').textContent=j.lastRun?'آخرین اجرای زمان‌بند: '+Math.round((Date.now()-j.lastRun)/6e4)+' دقیقه پیش':'زمان‌بند هنوز هیچ‌بار اجرا نشده؛ بدون آن اعلان خودکار ارسال نمی‌شود.';
+ $('#sg').showModal()}catch(x){banner('خطا: '+x.message)}};
+const sbody=test=>JSON.stringify({token:$('#tt').value,chat:$('#tc').value,on:$('#ton').checked,st:$('#tst').checked,gl:$('#tgl').checked,en:$('#ten').checked,sum:+$('#tsm').value,test});
+const tsend=async test=>{try{const j=await api('/api/settings',{method:'PUT',body:sbody(test)});$('#tmsg').textContent=test?j.msg:'ذخیره شد.'}catch(x){$('#tmsg').textContent=x.message}};
+$('#trn').onclick=async()=>{$('#tmsg').textContent='در حال اجرا…';try{await api('/api/settings',{method:'PUT',body:sbody(false)});const j=await api('/api/notify?me=1');
+ $('#tmsg').textContent=`رویداد منابع: ${j.events} · بازی‌های بلیت‌های فعال: ${j.games} (زنده ${j.live}، پیدا‌نشده ${j.missing}) · پیام ارسال‌شده: ${j.sent}`}catch(x){$('#tmsg').textContent=x.message}};
 $('#tsv').onclick=()=>tsend(false);$('#tts').onclick=()=>tsend(true);$('#tcl').onclick=()=>$('#sg').close();
 $('#exp').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(D,null,1)],{type:'application/json'}));a.download='betslip-backup.json';a.click()};
 $('#bulk').onclick=e=>{const k=e.target.dataset.k;if(!k)return;
@@ -485,7 +500,7 @@ $('#ml').onclick=e=>{const b=e.target.closest('[data-i]');if(!b)return;const E=M
 {const a=document.createElement('link');a.rel='manifest';a.href=BASE+'/manifest.webmanifest';document.head.append(a);
  const b=document.createElement('link');b.rel='apple-touch-icon';b.href=BASE+'/icon-192.png';document.head.append(b)}
 if('serviceWorker'in navigator)navigator.serviceWorker.register(BASE+'/sw.js').catch(()=>{});
-const VER='1.3.0';$('#ver').textContent='Betslip - Update: '+VER;
+const VER='1.4.0';$('#ver').textContent='Betslip - Update: '+VER;
 PUB?initPub():init();
 </script>
 </body>
