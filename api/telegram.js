@@ -1,15 +1,15 @@
 // وب‌هوک ربات تلگرام: فقط به چتِ خودِ شما پاسخ می‌دهد (Chat ID + secret token).
 const { kv } = require('./_lib');
 const C = require('./_core');
-const { EM, hm, call, send, analyze } = require('./_tg');
-const KB = { keyboard: [[{ text: '/bets' }, { text: '/live' }], [{ text: '/risk' }, { text: '/summary' }], [{ text: '/stats' }, { text: '/help' }]], resize_keyboard: true };
-const HELP = '🤖 دستورات Betslip\n\n/bets — فهرست بلیت‌های فعال\n/bet N — جزئیات یک بلیت (شماره یا بخشی از نام)\n/live — بازی‌های زنده\n/risk — بازی‌های پرخطر\n/summary — خلاصهٔ کامل\n/stats — آمار بلیت‌های تمام‌شده';
+const { EM, hm, dt, call, send, analyze } = require('./_tg');
+const KB = { keyboard: [[{ text: '/bets' }, { text: '/live' }], [{ text: '/risk' }, { text: '/summary' }], [{ text: '/stats' }, { text: '/status' }, { text: '/help' }]], resize_keyboard: true };
+const HELP = '🤖 دستورات Betslip\n\n/bets — فهرست بلیت‌های فعال\n/bet N — جزئیات یک بلیت (شماره یا بخشی از نام)\n/live — بازی‌های زنده\n/risk — بازی‌های پرخطر\n/summary — خلاصهٔ کامل\n/stats — آمار بلیت‌های تمام‌شده\n/status — وضعیت اعلان‌های خودکار';
 const B = (i) => (i.st == 'lost' ? '❌' : i.st == 'won' ? '🏆' : '▫️');
 const cn = (c) => `🟢${c.g} 🔵${c.b} 🟠${c.o} 🔴${c.r} ⚪${c.n}`;
 const gm = (x) => (!x ? '' : x.st == 'pre' ? (x.t ? hm(x.t) : '') : `${x.h}–${x.a}${x.st == 'in' ? (x.over ? ' (وقت اضافه)' : x.min ? ` (${x.min}′)` : '') : ' (پایان)'}`);
-const list = (A) => (A.bets.length ? `🎫 بلیت‌های فعال (${A.bets.length})\n\n` + A.bets.map((i, k) => `${k + 1}. ${B(i)} ${i.b.name} ×${i.b.odds}\n   ${cn(i.cnt)} · ~${Math.round(i.pr * 100)}٪`).join('\n') + '\n\nجزئیات: /bet شماره' : 'بلیت فعالی ندارید.');
+const list = (A) => (A.bets.length ? `🎫 بلیت‌های فعال (${A.bets.length})\n\n` + A.bets.map((i, k) => `${k + 1}. ${B(i)} ${i.b.name} ×${i.b.odds} · 📅 ${dt(i.b.created)}\n   ${cn(i.cnt)} · ~${Math.round(i.pr * 100)}٪`).join('\n') + '\n\nجزئیات: /bet شماره' : 'بلیت فعالی ندارید.');
 const t0 = (p) => (p.x && p.x.t ? new Date(p.x.t).getTime() : 9e15);
-const detail = (i) => `🎫 ${i.b.name} ×${i.b.odds} · مبلغ ${i.b.stake} · برد ${i.b.win} · ~${Math.round(i.pr * 100)}٪\n${B(i)} ${cn(i.cnt)}\n\n` + [...i.L].sort((p, q) => (p.x && p.x.st == 'in' ? 0 : 1) - (q.x && q.x.st == 'in' ? 0 : 1) || t0(p) - t0(q)).map((z) => `${EM[z.c]} ${z.l.home} – ${z.l.away} · ${z.x ? gm(z.x) : 'پیدا نشد'}\n   ${C.pickTxt(z.l.pick, z.l)} (${z.l.odds})`).join('\n');
+const detail = (i) => `🎫 ${i.b.name} ×${i.b.odds} · 📅 ${dt(i.b.created)} · مبلغ ${i.b.stake} · برد ${i.b.win} · ~${Math.round(i.pr * 100)}٪\n${B(i)} ${cn(i.cnt)}\n\n` + [...i.L].sort((p, q) => (p.x && p.x.st == 'in' ? 0 : 1) - (q.x && q.x.st == 'in' ? 0 : 1) || t0(p) - t0(q)).map((z) => `${EM[z.c]} ${z.l.home} – ${z.l.away} · ${z.x ? gm(z.x) : 'پیدا نشد'}\n   ${C.pickTxt(z.l.pick, z.l)} (${z.l.odds})`).join('\n');
 const live = (A) => {
   const G = Object.values(A.games).filter((g) => g.x && g.x.st == 'in');
   if (!G.length) { const up = Object.values(A.games).filter((g) => g.x && g.x.st == 'pre' && g.x.t).sort((p, q) => t0(p) - t0(q)).slice(0, 6); return 'الان بازی زنده‌ای از بلیت‌های فعال نیست.' + (up.length ? '\n\n⏰ بازی‌های بعدی:\n' + up.map((g) => `${hm(g.x.t)}  ${g.l.home} – ${g.l.away}`).join('\n') : ''); }
@@ -34,6 +34,11 @@ module.exports = async (q, s) => {
     else { const mm = String(m.text || '').trim().match(/^(\/\w+)(?:@\w+)?\s*([\s\S]*)$/); cmd = mm ? mm[1].toLowerCase() : '/help'; arg = mm ? mm[2].trim() : ''; }
     const data = JSON.parse((await kv(['GET', 'betslip:d:' + u])) || '{"bets":[]}');
     if (cmd == '/start' || cmd == '/help') { await send(cfg, HELP, KB); return s.json({ ok: 1 }); }
+    if (cmd == '/status') {
+      const lr = +(await kv(['GET', 'betslip:lastrun'])) || 0, rs = JSON.parse((await kv(['GET', 'betslip:lastres'])) || 'null');
+      await send(cfg, lr ? `🛠 آخرین اجرای زمان‌بند: ${Math.round((Date.now() - lr) / 6e4)} دقیقه پیش\n` + (rs ? (rs.err ? 'خطا: ' + rs.err : `بازی‌ها: ${rs.games} · پیام ارسال‌شده: ${rs.sent}`) : '') : '🛠 زمان‌بند هنوز هیچ‌بار اجرا نشده؛ اعلان خودکار بدون آن کار نمی‌کند (راهنما در README).');
+      return s.json({ ok: 1 });
+    }
     if (cmd == '/stats') { await send(cfg, stats(data)); return s.json({ ok: 1 }); }
     const base = cfg.base || process.env.SITE_BASE || 'https://' + q.headers.host;
     const E = (await (await fetch(base + '/api/live?apif=1')).json()).events || [], A = analyze(data, E);

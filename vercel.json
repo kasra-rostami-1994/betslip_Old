@@ -1,0 +1,1 @@
+{ "functions": { "api/notify.js": { "maxDuration": 30 }, "api/telegram.js": { "maxDuration": 30 }, "api/live.js": { "maxDuration": 30 } } }

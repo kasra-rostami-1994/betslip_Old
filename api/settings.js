@@ -1,13 +1,13 @@
 const { kv, user, rand } = require('./_lib');
 const { call } = require('./_tg');
-const CMDS = [['bets', 'فهرست بلیت‌های فعال'], ['bet', 'جزئیات یک بلیت (شماره یا نام)'], ['live', 'بازی‌های زنده'], ['risk', 'بازی‌های پرخطر'], ['summary', 'خلاصهٔ کامل'], ['stats', 'آمار بلیت‌های تمام‌شده'], ['help', 'راهنما']];
+const CMDS = [['bets', 'فهرست بلیت‌های فعال'], ['bet', 'جزئیات یک بلیت (شماره یا نام)'], ['live', 'بازی‌های زنده'], ['risk', 'بازی‌های پرخطر'], ['summary', 'خلاصهٔ کامل'], ['stats', 'آمار بلیت‌های تمام‌شده'], ['status', 'وضعیت اعلان‌های خودکار'], ['help', 'راهنما']];
 module.exports = async (q, s) => {
   const u = await user(q);
   if (!u) return s.status(401).json({ error: 'unauthorized' });
   const k = 'betslip:tgc:' + u;
   try {
     const cur = JSON.parse((await kv(['GET', k])) || 'null') || {};
-    if (q.method === 'GET') return s.json({ chat: cur.chat || '', on: !!cur.on, hasToken: !!cur.token, hook: !!cur.hs, st: cur.st, gl: cur.gl, en: cur.en, sum: cur.sum, lastRun: +(await kv(['GET', 'betslip:lastrun'])) || 0 });
+    if (q.method === 'GET') return s.json({ chat: cur.chat || '', on: !!cur.on, hasToken: !!cur.token, hook: !!cur.hs, st: cur.st, gl: cur.gl, en: cur.en, sum: cur.sum, lastRun: +(await kv(['GET', 'betslip:lastrun'])) || 0, lastRes: JSON.parse((await kv(['GET', 'betslip:lastres'])) || 'null') });
     if (q.method === 'PUT') {
       const b = typeof q.body === 'string' ? JSON.parse(q.body) : q.body || {};
       const cfg = { ...cur, token: String(b.token || '').trim() || cur.token || '', chat: String(b.chat || '').trim(), on: !!b.on, st: b.st !== false, gl: b.gl !== false, en: b.en !== false, sum: [0, 15, 30, 60].includes(+b.sum) ? +b.sum : 15 };

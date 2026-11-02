@@ -58,6 +58,8 @@ footer{text-align:center;padding:0 0 40px}
 [data-g],[data-gb]{cursor:pointer}.pub .tool{display:none}
 .tag{font-size:11px;color:var(--b);background:color-mix(in srgb,var(--b) 14%,transparent);border-radius:99px;padding:0 8px;margin-inline-start:4px;white-space:nowrap}
 .chw{overflow-x:auto}.ch{display:block}
+.dts{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}.dts .tag{margin:0}
+button.card{text-align:start;font:inherit;color:var(--tx)}button.card.on{border-color:var(--tx)}
 [hidden]{display:none!important}
 dialog{background:var(--bg);color:var(--tx);border:1px solid var(--line);border-radius:18px;width:min(560px,94vw);padding:20px}
 dialog::backdrop{background:#0009;backdrop-filter:blur(3px)}dialog form>*{display:block;width:100%;margin-bottom:10px}
@@ -125,7 +127,7 @@ const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',
 const PUB=new URLSearchParams(location.search).get('s');
 const SN={espn:'ESPN',sofa:'Sofascore',fd:'football-data',apif:'API-Football',tsdb:'TheSportsDB'};
 let OPEN;try{OPEN=new Set(JSON.parse(ls.g('open')||'[]'))}catch(e){OPEN=new Set()}
-let SORT=ls.g('srt')||'risk',FIL=null,SEL=null,TAG='';
+let SORT=ls.g('srt')||'risk',FIL=null,SEL=null,TAG='',CLS='';
 let KEY=ls.g('tok')||'',D={bets:[]},LV=[],SRC=[],tab='act',tmr,dirty=0,at=null,started=0;
 
 // ---------- شبکه ----------
@@ -133,7 +135,7 @@ async function api(p,o={}){const r=await fetch(BASE+p,{...o,headers:{'content-ty
  if(r.status==401){const e=new Error('رمز اشتباه است');e.u=1;throw e}if(!r.ok)throw new Error('HTTP '+r.status);return r.json()}
 const banner=m=>{const e=$('#err');e.style.display=m?'block':'none';e.textContent=m||''};
 const save=()=>{clearTimeout(tmr);tmr=setTimeout(()=>api('/api/data',{method:'PUT',body:JSON.stringify(D)}).then(()=>banner('')).catch(e=>banner('ذخیره نشد: '+e.message)),700)};
-async function init(){try{D=await api('/api/data');D.trash=(D.trash||[]).filter(b=>Date.now()-b.del<30*864e5);render();await live();if(!started){started=1;sched()}}
+async function init(){try{D=await api('/api/data');D.trash=(D.trash||[]).filter(b=>Date.now()-b.del<30*864e5);render();api('/api/settings').then(j=>{TGON=!!(j.on&&j.hasToken)}).catch(()=>{});await live();if(!started){started=1;sched()}}
  catch(e){if(e.u){$('#lg').showModal()}else banner('خطا در اتصال به سرور یا دیتابیس: '+e.message)}}
 let needMore=0;
 const unmatched=()=>D.bets.some(b=>!b.arch&&b.legs.some(l=>!l.fin&&!l.ov&&!LV.some(e=>mt(l,e))));
@@ -229,6 +231,8 @@ function view(b,pub){
  const cnt=k=>L.filter(z=>z.c==k).length,lost=L.some(z=>z.dead),won=L.every(z=>z.c=='g'),nl=L.filter(z=>z.x?.st=='in').length,wr=L.filter(z=>z.c=='r'&&!z.dead).length;
  b._st=lost?'lost':won?'won':'open';
  const fa=L.reduce((p,z)=>p*fac(z.l,z.x),1);
+ const dt=d=>new Date(d).toLocaleDateString('fa-IR'),ts=L.map(z=>z.x&&z.x.t&&+z.x.t).filter(Boolean),d1=ts.length?Math.min(...ts):0,d2=ts.length?Math.max(...ts):0;
+ const dchips=(pub?'':`<span class="tag">📅 ساخت ${dt(b.created)}</span>`)+(d1?`<span class="tag">⚽ بازی‌ها ${dt(d1)}${dt(d1)!=dt(d2)?' تا '+dt(d2):''}</span>`:'')+(b.arch&&!pub?`<span class="tag">🗄 بایگانی ${dt(b.arch)}</span>`:'');
  const pr=lost?0:won?1:L.filter(z=>z.c!='g').reduce((p,z)=>p/z.l.odds,1);
  const chip=lost?['از دست رفته','var(--r)']:won?['برنده شد','var(--g)']:wr?[wr+' بازی اشتباه (زنده)','var(--r)']:nl?[nl+' بازی زنده','var(--b)']:['در انتظار','var(--mut)'];
  const open=pub||OPEN.has(b.id),id=b.id;
@@ -246,6 +250,7 @@ function view(b,pub){
  const ck=SEL&&!pub?`<input type="checkbox" class="ck" data-b="${id}" aria-label="انتخاب بلیت"${SEL.has(id)?' checked':''}>`:'';
  return `<section class="bet ${lost?'lost':won?'won':''}"><div class="bh">
  <div class="t"><div class="tl">${ck}<h2>${esc(b.name)}${b.share&&!pub?' 🔗':''}</h2>${pub?'':tagsH(b)}${b.auto&&!pub?'<span class="tag" title="به‌صورت خودکار بایگانی شد">خودکار</span>':''}</div><span class="chip" style="--c:${chip[1]}">${chip[0]}</span></div>
+ <div class="dts">${dchips}</div>
  <div class="kv"><div><small>ضریب</small><b>${(+b.odds).toLocaleString()}</b></div>${pub?'':`<div><small>مبلغ</small><b>${b.stake}</b></div><div><small>برد احتمالی</small><b>${(+b.win).toLocaleString()}</b></div>${fa!=1&&!lost?`<div><small>برد تسویه‌شده</small><b>${(b.win*fa).toLocaleString(undefined,{maximumFractionDigits:2})}</b></div>`:''}`}<div><small>احتمال تقریبی</small><b>${pr>0&&pr<.01?'<1':Math.round(pr*100)}%</b></div></div>
  ${!pub&&b.note?`<div class="sub">📝 ${esc(b.note)}</div>`:''}${!pub&&b.cash!=null?`<div class="sub">کش‌اوت ${b.cash}</div>`:''}
  <div class="bar">${['g','b','o','r','n'].map(k=>`<span style="flex:${cnt(k)};background:var(--${k})"></span>`).join('')}</div>
@@ -292,6 +297,7 @@ function coCalc(){const{pr,win}=binfo(CO),o=num($('#cov').value),E=pr*win;
  $('#cor').innerHTML=`احتمال تقریبی برد: <b>${(pr*100).toFixed(1)}٪</b> (خوش‌بینانه است؛ حاشیهٔ سود سایت لحاظ نشده)<br>برد در صورت نگه‌داشتن: <b>${win.toFixed(2)}</b> · ارزش مورد انتظار نگه‌داشتن: <b>${E.toFixed(2)}</b>`+
  (o>0?`<br>پیشنهاد کش‌اوت: <b>${o}</b> · احتمال لازم برای ارزش نگه‌داشتن: <b>${win?(o/win*100).toFixed(1):'—'}٪</b><br><b style="color:var(--${o>=E?'g':'o'})">${o>=E?'کش‌اوت از ارزش مورد انتظارِ نگه‌داشتن بیشتر است':'نگه‌داشتن ارزش مورد انتظار بیشتری دارد'} (اختلاف ${(o-E).toFixed(2)})</b><br><span class="sub">راهنمای تقریبی است، نه توصیهٔ مالی.</span>`:'<br><span class="sub">مبلغ پیشنهادی سایت را وارد کنید.</span>')}
 
+const lvTxt=x=>!x?'':x.st=='pre'?(x.t?x.t.toLocaleTimeString('fa-IR',{hour:'2-digit',minute:'2-digit'}):''):x.h+'–'+x.a+' · '+(x.st=='post'?'پایان':x.over?'۹۰′ تمام':x.min?x.min+'′':'زنده');
 const TL={5:['بحرانی','var(--r)'],4:['نزدیک','var(--o)'],3:['در انتظار','var(--mut)'],2:['مطابق پیش‌بینی','var(--b)'],1:['تمام‌شده و درست','var(--g)'],0:['بلیت‌ها سوخته','var(--n)']};
 function risk(){
  const G={},now=Date.now();
@@ -301,15 +307,24 @@ function risk(){
   const open=al.filter(r=>r.c!='g');
   return{g,x,R:al,tier,ns:!x||x.st=='pre'?1:0,n:open.length,pot:open.reduce((s,r)=>s+(+r.b.win||0),0),el:x&&x.st=='in'?(x.over?90:x.min||45):0,ko:x&&x.t?x.t-now:9e15}}).filter(a=>a.R.length);
  A.sort((p,q)=>p.ns-q.ns||(p.ns?p.ko-q.ko||q.pot-p.pot:q.tier-p.tier||q.pot-p.pot||q.el-p.el));
- return A.length?A.map(a=>`<section class="bet"><div class="bh" data-g="${esc(a.g.k)}" data-n="${esc(a.g.l.home+' – '+a.g.l.away)}" title="نمایش بلیت‌های شامل این بازی"><div class="t"><h2 class="nm">${esc(a.g.l.home)} – ${esc(a.g.l.away)}</h2><span class="chip" style="--c:${TL[a.tier][1]}">${TL[a.tier][0]}</span></div>
+ return A.length?A.map(a=>`<section class="bet"><div class="bh" data-g="${esc(a.g.k)}" data-n="${esc(a.g.l.home+' – '+a.g.l.away)}" title="نمایش بلیت‌های شامل این بازی"><div class="t"><h2 class="nm">${esc(a.g.l.home)} – ${esc(a.g.l.away)}${a.x?` <span style="color:${TL[a.tier][1]};font-weight:600">(${lvTxt(a.x)})</span>`:''}</h2><span class="chip" style="--c:${TL[a.tier][1]}">${TL[a.tier][0]}</span></div>
   <div class="sub" style="margin-top:6px">${a.x&&a.x.st!='pre'?a.x.h+'–'+a.x.a+' · '+stt(a.x):a.x?fmtT(a.x.t):'—'} · در معرض خطر: <b>${a.n}</b> بلیت · برد احتمالی <b>${a.pot.toFixed(2)}</b> USDT</div></div>
   <div class="legs">${a.R.map(r=>`<div class="leg" data-gb="${r.b.id}" title="نمایش این بلیت"><i class="dot c-${r.bd?'n':r.c}"></i><div><div class="nm">${esc(r.b.name)} <span class="sub">×${(+r.b.odds).toLocaleString()}</span> ${tagsH(r.b)}</div><div class="pk">${esc(pickTxt(r.l.pick,r.l))} · ${(+r.l.odds).toFixed(2)}${r.bd?' · بلیت سوخته':''}${r.b.note?' · 📝 '+esc(r.b.note):''}</div></div><span></span></div>`).join('')}</div></section>`).join(''):'<p class="sub emp">بلیت فعالی نیست.</p>'}
 
+function bcls(b){let dead=0,all=1,wr=0,near=0,live=0;
+ b.legs.forEach(l=>{const x=cons(l),[c,d]=ev(l.pick,x);if(d)dead=1;if(c!='g')all=0;if(c=='r'&&!d)wr++;if(c=='o')near++;if(x&&x.st=='in')live++});
+ return dead?'lost':all?'won':wr?'wr':near?'near':live?'ok':'wait'}
+const CLN={wr:['پای اشتباهِ زنده','r'],near:['نزدیک به پیش‌بینی','o'],ok:['زنده و مطابق','b'],wait:['در انتظار شروع','n'],won:['برنده (آمادهٔ بایگانی)','g'],lost:['باخت قطعی (تا پایان بازی)','r']};
+function summ(){const B=D.bets.filter(b=>!b.arch),C={},G={};
+ B.forEach(b=>{const k=bcls(b);C[k]=(C[k]||0)+1;b.legs.forEach(l=>{G[gk(l)]=cons(l)})});
+ const gs=Object.values(G),n=f=>gs.filter(f).length;
+ return `<div class="sub" style="grid-column:1/-1">${B.length} بلیت فعال · ${gs.length} بازی: <b>${n(x=>x&&x.st=='in')}</b> زنده، <b>${n(x=>x&&x.st=='post')}</b> تمام‌شده، <b>${n(x=>!x||x.st=='pre')}</b> شروع‌نشده${CLS?' · فیلتر: '+CLN[CLS][0]+' (برای حذف دوباره بزنید)':''}</div>
+ <div class="kpis">${['wr','near','ok','wait','won','lost'].map(k=>`<button class="card k${CLS==k?' on':''}" data-cls="${k}"><small>${CLN[k][0]}</small><b style="color:var(--${CLN[k][1]})">${C[k]||0}</b></button>`).join('')}</div>`}
 function autoArch(){let n=0;
  D.bets.forEach(b=>{if(b.arch||b.keep)return;
   if(b.legs.some(l=>{const x=cons(l);return x&&(x.st=='post'||x.over)&&ev(l.pick,x)[1]})){b.arch=Date.now();b.res='lost';b.auto=1;n++}});
  if(n){dirty=1;banner(n+' بلیت به‌دلیل باخت قطعی خودکار به بایگانی رفت.');setTimeout(()=>banner(''),7000)}}
-const visible=()=>D.bets.filter(b=>tab=='act'?!b.arch:!!b.arch).filter(b=>!FIL||(FIL.g?b.legs.some(l=>gk(l)==FIL.g):b.id==FIL.b)).filter(b=>!TAG||(b.tags||[]).includes(TAG));
+const visible=()=>D.bets.filter(b=>tab=='act'?!b.arch:!!b.arch).filter(b=>!FIL||(FIL.g?b.legs.some(l=>gk(l)==FIL.g):b.id==FIL.b)).filter(b=>!TAG||(b.tags||[]).includes(TAG)).filter(b=>tab!='act'||!CLS||bcls(b)==CLS);
 function sortBets(a){const k=SORT=='risk'&&tab=='his'?'arch':SORT;
  return a.sort({risk:(p,q)=>brisk(q)-brisk(p)||q.win-p.win,arch:(p,q)=>q.arch-p.arch,new:(p,q)=>q.created-p.created,old:(p,q)=>p.created-q.created,odds:(p,q)=>q.odds-p.odds,win:(p,q)=>q.win-p.win}[k])}
 function bulk(){const bar=$('#bulk');bar.hidden=!SEL||PUB;if(!SEL)return;const n=SEL.size,u=tab=='his';
@@ -325,7 +340,7 @@ function render(){
  if(tab=='risk')h=risk();else if(tab=='st')h=stats2();else if(tab=='trash')h=trashV();
  else{const bets=sortBets(visible());
   const fb=FIL?`<div class="fil"><span>فیلتر: <b>${esc(FIL.n)}</b></span><a href="#" id="nf">حذف فیلتر</a></div>`:'';
-  h=fb+(bets.length?bets.map(b=>view(b)).join(''):'<p class="sub emp">بلیتی نیست. با «+ بلیت» شروع کنید.</p>')}
+  h=(tab=='act'?summ():'')+fb+(bets.length?bets.map(b=>view(b)).join(''):'<p class="sub emp">بلیتی نیست. با «+ بلیت» شروع کنید.</p>')}
  $('#app').innerHTML=h;bulk();
  if(dirty){dirty=0;save()}}
 
@@ -412,7 +427,7 @@ $('#ovs').onclick=()=>{const l=OV.l,h=parseInt($('#oh').value),a=parseInt($('#oa
  $('#ov').close();save();render()};
 $('#ovc').onclick=()=>{delete OV.l.ov;$('#ov').close();save();render()};
 $('#ovr').onclick=()=>{delete OV.l.ov;delete OV.l.fin;$('#ov').close();save();render()};$('#ovx').onclick=()=>$('#ov').close();
-$('#tabs').onclick=e=>{const t=e.target.dataset.t;if(t){tab=t;FIL=null;SEL=null;render()}};
+$('#tabs').onclick=e=>{const t=e.target.dataset.t;if(t){tab=t;FIL=null;SEL=null;CLS='';render()}};
 $('#sel').onclick=()=>{SEL=SEL?null:new Set();render()};
 $('#srt').onchange=e=>{SORT=e.target.value;ls.s('srt',SORT);render()};
 $('#rf').onclick=live;
@@ -429,10 +444,10 @@ $('#fi').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)re
 $('#stg').onclick=async()=>{try{const j=await api('/api/settings');
  $('#tc').value=j.chat||'';$('#ton').checked=!!j.on;$('#tt').value='';$('#tt').placeholder=j.hasToken?'توکن ذخیره شده؛ برای تغییر، توکن جدید را وارد کنید':'توکن ربات';
  $('#tst').checked=j.st!==false;$('#tgl').checked=j.gl!==false;$('#ten').checked=j.en!==false;$('#tsm').value=String(j.sum??15);$('#tmsg').textContent='';
- $('#tlr').textContent=j.lastRun?'آخرین اجرای زمان‌بند: '+Math.round((Date.now()-j.lastRun)/6e4)+' دقیقه پیش':'زمان‌بند هنوز هیچ‌بار اجرا نشده؛ بدون آن اعلان خودکار ارسال نمی‌شود.';
+ $('#tlr').textContent=j.lastRun?'آخرین اجرای زمان‌بند: '+Math.round((Date.now()-j.lastRun)/6e4)+' دقیقه پیش'+(j.lastRes?(j.lastRes.err?' · خطا: '+j.lastRes.err:' · بازی‌ها: '+j.lastRes.games+' · پیام‌ها: '+j.lastRes.sent):''):'زمان‌بند هنوز هیچ‌بار اجرا نشده؛ بدون آن اعلان خودکار ارسال نمی‌شود.';
  $('#sg').showModal()}catch(x){banner('خطا: '+x.message)}};
 const sbody=test=>JSON.stringify({token:$('#tt').value,chat:$('#tc').value,on:$('#ton').checked,st:$('#tst').checked,gl:$('#tgl').checked,en:$('#ten').checked,sum:+$('#tsm').value,test});
-const tsend=async test=>{try{const j=await api('/api/settings',{method:'PUT',body:sbody(test)});$('#tmsg').textContent=test?j.msg:'ذخیره شد.'}catch(x){$('#tmsg').textContent=x.message}};
+const tsend=async test=>{try{const j=await api('/api/settings',{method:'PUT',body:sbody(test)});TGON=$('#ton').checked;$('#tmsg').textContent=test?j.msg:'ذخیره شد.'}catch(x){$('#tmsg').textContent=x.message}};
 $('#trn').onclick=async()=>{$('#tmsg').textContent='در حال اجرا…';try{await api('/api/settings',{method:'PUT',body:sbody(false)});const j=await api('/api/notify?me=1');
  $('#tmsg').textContent=`رویداد منابع: ${j.events} · بازی‌های بلیت‌های فعال: ${j.games} (زنده ${j.live}، پیدا‌نشده ${j.missing}) · پیام ارسال‌شده: ${j.sent}`}catch(x){$('#tmsg').textContent=x.message}};
 $('#thk').onclick=async()=>{$('#tmsg').textContent='در حال فعال‌سازی…';try{const j=await api('/api/settings',{method:'PUT',body:JSON.stringify({...JSON.parse(sbody(false)),hook:true,base:location.origin+BASE})});$('#tmsg').textContent=j.msg}catch(x){$('#tmsg').textContent=x.message}};
@@ -458,6 +473,7 @@ const copy=u=>navigator.clipboard?navigator.clipboard.writeText(u).then(()=>aler
 $('#app').addEventListener('change',e=>{if(PUB||!e.target.classList.contains('ck'))return;const id=e.target.dataset.b;SEL.has(id)?SEL.delete(id):SEL.add(id);bulk()});
 $('#app').addEventListener('click',e=>{
  if(PUB)return;const t=e.target;
+ const kc=t.closest('[data-cls]');if(kc){CLS=CLS==kc.dataset.cls?'':kc.dataset.cls;render();return}
  if(t.closest('#nf')){e.preventDefault();FIL=null;render();return}
  const tr=t.closest('[data-tr]');
  if(tr){e.preventDefault();const k=tr.dataset.tr,i=(D.trash||[]).findIndex(x=>x.id==tr.dataset.b);
@@ -490,12 +506,13 @@ async function initPub(){try{const j=await(await fetch(BASE+'/api/share?t='+enco
  D={bets:[{...j.bet,id:'pub'}]};document.title=j.bet.name+' – Betslip';document.body.classList.add('pub');render();await live();sched()}
  catch(e){$('#app').innerHTML='<p class="sub emp">این لینک معتبر نیست یا اشتراک‌گذاری آن لغو شده است.</p>'}}
 // ---------- به‌روزرسانی هوشمند: ۳۰ ثانیه وقتی بازی زنده/نزدیک شروع است، وگرنه ۵ دقیقه؛ تب پنهان = متوقف ----------
-let tm;
+let tm,TGON=0,lastPing=0;
+function tgPing(){if(!TGON||PUB||Date.now()-lastPing<55e3)return;lastPing=Date.now();api('/api/notify?me=1&auto=1').catch(()=>{})}
 function delay(){const now=Date.now();
  for(const b of D.bets){if(b.arch)continue;for(const l of b.legs){if(l.fin||l.ov)continue;const x=cons(l);
   if(x&&(x.st=='in'||(x.st=='pre'&&x.t&&x.t-now<20*6e4&&x.t-now>-4*36e5)))return 3e4}}
  return 3e5}
-function sched(){clearTimeout(tm);tm=setTimeout(async()=>{if(!document.hidden)await live();sched()},delay())}
+function sched(){clearTimeout(tm);tm=setTimeout(async()=>{if(!document.hidden){await live();tgPing()}sched()},delay())}
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&(D.bets.length||PUB)){live();sched()}});
 // ---------- انتخاب دستی بازی (تطبیق اسم تیم) ----------
 let MP=null;
@@ -511,7 +528,7 @@ $('#ml').onclick=e=>{const b=e.target.closest('[data-i]');if(!b)return;const E=M
 {const a=document.createElement('link');a.rel='manifest';a.href=BASE+'/manifest.webmanifest';document.head.append(a);
  const b=document.createElement('link');b.rel='apple-touch-icon';b.href=BASE+'/icon-192.png';document.head.append(b)}
 if('serviceWorker'in navigator)navigator.serviceWorker.register(BASE+'/sw.js').catch(()=>{});
-const VER='1.6.0';$('#ver').textContent='Betslip - Update: '+VER;
+const VER='1.7.0';$('#ver').textContent='Betslip - Update: '+VER;
 PUB?initPub():init();
 </script>
 </body>

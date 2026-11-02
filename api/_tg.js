@@ -3,6 +3,7 @@ const C = require('./_core');
 const EM = { g: '🟢', b: '🔵', o: '🟠', r: '🔴', n: '⚪' };
 const TZ = process.env.TIMEZONE || 'Europe/Istanbul';
 const hm = (t) => new Date(t).toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit', timeZone: TZ });
+const dt = (t) => new Date(t).toLocaleDateString('fa-IR', { timeZone: TZ });
 const call = (cfg, method, body) => fetch('https://api.telegram.org/bot' + cfg.token + '/' + method, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }).then((r) => r.json());
 const send = async (cfg, text, markup) => {
   const parts = []; let cur = '';
@@ -39,4 +40,4 @@ const analyze = (data, E) => {
   });
   return { games, bets, st };
 };
-module.exports = { EM, hm, call, send, pick, analyze };
+module.exports = { EM, hm, dt, call, send, pick, analyze };

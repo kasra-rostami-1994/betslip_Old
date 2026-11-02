@@ -4,12 +4,12 @@ const { kv, user } = require('./_lib');
 const C = require('./_core');
 const { EM, hm, send, pick } = require('./_tg');
 module.exports = async (q, s) => {
-  const cron = !!process.env.CRON_SECRET && q.headers.authorization === 'Bearer ' + process.env.CRON_SECRET;
+  const sec = process.env.CRON_SECRET, cron = !!sec && (q.headers.authorization === 'Bearer ' + sec || (q.query && q.query.key === sec));
   const me = cron ? null : await user(q);
   if (!cron && !me) return s.status(401).end();
   try {
     if (cron) await kv(['SET', 'betslip:lastrun', String(Date.now())]);
-    const users = cron ? (await kv(['SMEMBERS', 'betslip:tg'])) || [] : [me], force = !cron;
+    const users = cron ? (await kv(['SMEMBERS', 'betslip:tg'])) || [] : [me], auto = !cron && !!q.query && q.query.auto === '1', force = !cron && !auto;
     const out = { users: users.length, events: 0, games: 0, live: 0, missing: 0, sent: 0 };
     if (!users.length) return s.json(out);
     let base = process.env.SITE_BASE;
@@ -19,7 +19,8 @@ module.exports = async (q, s) => {
     const now = Date.now();
     for (const u of users) {
       const cfg = JSON.parse((await kv(['GET', 'betslip:tgc:' + u])) || 'null');
-      if (!cfg || !cfg.token || !cfg.chat || (cron && !cfg.on)) continue;
+      if (!cfg || !cfg.token || !cfg.chat || (!force && !cfg.on)) continue;
+      if (!(await kv(['SET', 'betslip:lock:' + u, '1', 'NX', 'EX', '20']))) continue;
       const O = { st: cfg.st !== false, gl: cfg.gl !== false, en: cfg.en !== false, sum: cfg.sum === undefined ? 15 : +cfg.sum };
       const data = JSON.parse((await kv(['GET', 'betslip:d:' + u])) || '{"bets":[]}');
       const key = 'betslip:ns:' + u, prev = JSON.parse((await kv(['GET', key])) || 'null');
@@ -76,6 +77,8 @@ module.exports = async (q, s) => {
       if (msgs.length && (prev || force)) { if (await send(cfg, msgs.join('\n\n'))) out.sent += msgs.length; }
       await kv(['SET', key, JSON.stringify(next)]);
     }
+    if (cron) await kv(['SET', 'betslip:lastres', JSON.stringify({ ...out, at: Date.now() })]);
     s.json(out);
-  } catch (e) { s.status(500).json({ error: String(e.message || e) }); }
+  } catch (e) {
+    if (cron) { try { await kv(['SET', 'betslip:lastres', JSON.stringify({ err: String(e.message || e), at: Date.now() })]); } catch (x) {} } s.status(500).json({ error: String(e.message || e) }); }
 };
