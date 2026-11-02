@@ -245,7 +245,7 @@ function view(b,pub){
   <button class="x" data-a="${b.arch?'un':'ar'}" data-b="${id}">${b.arch?'بازگردانی':'بایگانی'}</button><button class="x" data-a="del" data-b="${id}">حذف</button></div>`;
  const ck=SEL&&!pub?`<input type="checkbox" class="ck" data-b="${id}" aria-label="انتخاب بلیت"${SEL.has(id)?' checked':''}>`:'';
  return `<section class="bet ${lost?'lost':won?'won':''}"><div class="bh">
- <div class="t"><div class="tl">${ck}<h2>${esc(b.name)}${b.share&&!pub?' 🔗':''}</h2>${pub?'':tagsH(b)}</div><span class="chip" style="--c:${chip[1]}">${chip[0]}</span></div>
+ <div class="t"><div class="tl">${ck}<h2>${esc(b.name)}${b.share&&!pub?' 🔗':''}</h2>${pub?'':tagsH(b)}${b.auto&&!pub?'<span class="tag" title="به‌صورت خودکار بایگانی شد">خودکار</span>':''}</div><span class="chip" style="--c:${chip[1]}">${chip[0]}</span></div>
  <div class="kv"><div><small>ضریب</small><b>${(+b.odds).toLocaleString()}</b></div>${pub?'':`<div><small>مبلغ</small><b>${b.stake}</b></div><div><small>برد احتمالی</small><b>${(+b.win).toLocaleString()}</b></div>${fa!=1&&!lost?`<div><small>برد تسویه‌شده</small><b>${(b.win*fa).toLocaleString(undefined,{maximumFractionDigits:2})}</b></div>`:''}`}<div><small>احتمال تقریبی</small><b>${pr>0&&pr<.01?'<1':Math.round(pr*100)}%</b></div></div>
  ${!pub&&b.note?`<div class="sub">📝 ${esc(b.note)}</div>`:''}${!pub&&b.cash!=null?`<div class="sub">کش‌اوت ${b.cash}</div>`:''}
  <div class="bar">${['g','b','o','r','n'].map(k=>`<span style="flex:${cnt(k)};background:var(--${k})"></span>`).join('')}</div>
@@ -299,12 +299,16 @@ function risk(){
  const A=Object.values(G).map(g=>{const x=cons(g.l),R=g.R.map(r=>{const[c]=ev(r.l.pick,x);return{...r,c,bd:r.b.legs.some(l=>ev(l.pick,cons(l))[1])}});
   const al=R.filter(r=>!r.bd),tier=!al.length?0:al.some(r=>r.c=='r')?5:al.some(r=>r.c=='o')?4:al.some(r=>r.c=='n')?3:al.some(r=>r.c=='b')?2:1;
   const open=al.filter(r=>r.c!='g');
-  return{g,x,R,tier,ns:!x||x.st=='pre'?1:0,n:open.length,pot:open.reduce((s,r)=>s+(+r.b.win||0),0),el:x&&x.st=='in'?(x.over?90:x.min||45):0,ko:x&&x.t?x.t-now:9e15}});
+  return{g,x,R:al,tier,ns:!x||x.st=='pre'?1:0,n:open.length,pot:open.reduce((s,r)=>s+(+r.b.win||0),0),el:x&&x.st=='in'?(x.over?90:x.min||45):0,ko:x&&x.t?x.t-now:9e15}}).filter(a=>a.R.length);
  A.sort((p,q)=>p.ns-q.ns||(p.ns?p.ko-q.ko||q.pot-p.pot:q.tier-p.tier||q.pot-p.pot||q.el-p.el));
  return A.length?A.map(a=>`<section class="bet"><div class="bh" data-g="${esc(a.g.k)}" data-n="${esc(a.g.l.home+' – '+a.g.l.away)}" title="نمایش بلیت‌های شامل این بازی"><div class="t"><h2 class="nm">${esc(a.g.l.home)} – ${esc(a.g.l.away)}</h2><span class="chip" style="--c:${TL[a.tier][1]}">${TL[a.tier][0]}</span></div>
   <div class="sub" style="margin-top:6px">${a.x&&a.x.st!='pre'?a.x.h+'–'+a.x.a+' · '+stt(a.x):a.x?fmtT(a.x.t):'—'} · در معرض خطر: <b>${a.n}</b> بلیت · برد احتمالی <b>${a.pot.toFixed(2)}</b> USDT</div></div>
   <div class="legs">${a.R.map(r=>`<div class="leg" data-gb="${r.b.id}" title="نمایش این بلیت"><i class="dot c-${r.bd?'n':r.c}"></i><div><div class="nm">${esc(r.b.name)} <span class="sub">×${(+r.b.odds).toLocaleString()}</span> ${tagsH(r.b)}</div><div class="pk">${esc(pickTxt(r.l.pick,r.l))} · ${(+r.l.odds).toFixed(2)}${r.bd?' · بلیت سوخته':''}${r.b.note?' · 📝 '+esc(r.b.note):''}</div></div><span></span></div>`).join('')}</div></section>`).join(''):'<p class="sub emp">بلیت فعالی نیست.</p>'}
 
+function autoArch(){let n=0;
+ D.bets.forEach(b=>{if(b.arch||b.keep)return;
+  if(b.legs.some(l=>{const x=cons(l);return x&&(x.st=='post'||x.over)&&ev(l.pick,x)[1]})){b.arch=Date.now();b.res='lost';b.auto=1;n++}});
+ if(n){dirty=1;banner(n+' بلیت به‌دلیل باخت قطعی خودکار به بایگانی رفت.');setTimeout(()=>banner(''),7000)}}
 const visible=()=>D.bets.filter(b=>tab=='act'?!b.arch:!!b.arch).filter(b=>!FIL||(FIL.g?b.legs.some(l=>gk(l)==FIL.g):b.id==FIL.b)).filter(b=>!TAG||(b.tags||[]).includes(TAG));
 function sortBets(a){const k=SORT=='risk'&&tab=='his'?'arch':SORT;
  return a.sort({risk:(p,q)=>brisk(q)-brisk(p)||q.win-p.win,arch:(p,q)=>q.arch-p.arch,new:(p,q)=>q.created-p.created,old:(p,q)=>p.created-q.created,odds:(p,q)=>q.odds-p.odds,win:(p,q)=>q.win-p.win}[k])}
@@ -312,6 +316,7 @@ function bulk(){const bar=$('#bulk');bar.hidden=!SEL||PUB;if(!SEL)return;const n
  bar.innerHTML=`<b>${n} انتخاب</b><button data-k="all">انتخاب همه</button><button data-k="${u?'un':'ar'}"${n?'':' disabled'}>${u?'بازگردانی':'بایگانی'}</button><button data-k="del"${n?'':' disabled'}>حذف</button><button data-k="off">پایان</button>`}
 function render(){
  CC.clear();
+ if(!PUB)autoArch();
  $('#upd').textContent=(at?'به‌روزرسانی '+at.toLocaleTimeString('fa-IR')+' · ':'')+SRC.map(s=>(SN[s.n]||s.n)+(s.ok?' ✓'+s.c:' ✗')).join(' ');
  if(PUB){$('#app').innerHTML=view(D.bets[0],1);return}
  document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.t==tab));
@@ -439,7 +444,7 @@ $('#bulk').onclick=e=>{const k=e.target.dataset.k;if(!k)return;
  const bs=D.bets.filter(b=>SEL.has(b.id));if(!bs.length)return;
  if(k=='del'){if(!confirm(bs.length+' بلیت به سطل زباله برود؟'))return;toTrash(bs)}
  if(k=='ar'){if(bs.some(b=>b._st=='open')&&!confirm('بعضی از این بلیت‌ها هنوز تمام نشده‌اند؛ همه بایگانی شوند؟'))return;bs.forEach(b=>{b.arch=Date.now();b.res=b._st})}
- if(k=='un')bs.forEach(b=>{delete b.arch;delete b.res});
+ if(k=='un')bs.forEach(b=>{delete b.arch;delete b.res;delete b.auto;b.keep=1});
  SEL=null;save();render()};
 let SU=0;
 $('#sw').onclick=e=>{e.preventDefault();SU=!SU;$('#lt').textContent=SU?'ثبت‌نام':'ورود';$('#iv').hidden=!SU;$('#sw').textContent=SU?'حساب دارید؟ ورود':'حساب ندارید؟ ثبت‌نام'};
@@ -479,7 +484,7 @@ $('#app').addEventListener('click',e=>{
   if(k=='us'){if(!confirm('لینک عمومی این بلیت غیرفعال شود؟'))return;delete b.share}
   if(k=='del'){if(!confirm('بلیت به سطل زباله برود؟ (۳۰ روز قابل بازگردانی است)'))return;toTrash([b])}
   if(k=='ar'){if(b._st=='open'&&!confirm('هنوز تمام نشده؛ بایگانی شود؟'))return;b.arch=Date.now();b.res=b._st}
-  if(k=='un'){delete b.arch;delete b.res}
+  if(k=='un'){delete b.arch;delete b.res;delete b.auto;b.keep=1}
   save();render()}});
 async function initPub(){try{const j=await(await fetch(BASE+'/api/share?t='+encodeURIComponent(PUB))).json();if(!j.bet)throw 0;
  D={bets:[{...j.bet,id:'pub'}]};document.title=j.bet.name+' – Betslip';document.body.classList.add('pub');render();await live();sched()}
@@ -506,7 +511,7 @@ $('#ml').onclick=e=>{const b=e.target.closest('[data-i]');if(!b)return;const E=M
 {const a=document.createElement('link');a.rel='manifest';a.href=BASE+'/manifest.webmanifest';document.head.append(a);
  const b=document.createElement('link');b.rel='apple-touch-icon';b.href=BASE+'/icon-192.png';document.head.append(b)}
 if('serviceWorker'in navigator)navigator.serviceWorker.register(BASE+'/sw.js').catch(()=>{});
-const VER='1.5.1';$('#ver').textContent='Betslip - Update: '+VER;
+const VER='1.6.0';$('#ver').textContent='Betslip - Update: '+VER;
 PUB?initPub():init();
 </script>
 </body>

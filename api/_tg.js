@@ -24,14 +24,15 @@ const pick = (l, E) => {
 const analyze = (data, E) => {
   const games = {}, bets = [], st = {};
   data.bets.filter((b) => !b.arch).sort((a, b) => a.created - b.created).forEach((b) => {
-    let dead = false, all = true, pr = 1; const cnt = { g: 0, b: 0, o: 0, r: 0, n: 0 }, L = [];
-    b.legs.forEach((l) => {
-      const x = pick(l, E), [c, d] = C.ev(l.pick, x);
-      if (d) dead = true;
-      if (c != 'g') { all = false; pr /= l.odds; }
-      cnt[c]++; L.push({ l, x, c, d });
-      const k = l.home + '|' + l.away, g = games[k] || (games[k] = { l, x, rows: [] });
-      g.rows.push({ b, l, c, d });
+    const L = b.legs.map((l) => { const x = pick(l, E), [c, d] = C.ev(l.pick, x); return { l, x, c, d }; });
+    if (!b.keep && L.some((z) => z.d && z.x && (z.x.st == 'post' || z.x.over))) return; // باخت قطعی و تمام‌شده: مثل سایت، بایگانی حساب می‌شود
+    let dead = false, all = true, pr = 1; const cnt = { g: 0, b: 0, o: 0, r: 0, n: 0 };
+    L.forEach((z) => {
+      if (z.d) dead = true;
+      if (z.c != 'g') { all = false; pr /= z.l.odds; }
+      cnt[z.c]++;
+      const k = z.l.home + '|' + z.l.away, g = games[k] || (games[k] = { l: z.l, x: z.x, rows: [] });
+      g.rows.push({ b, l: z.l, c: z.c, d: z.d });
     });
     st[b.id] = dead ? 'lost' : all ? 'won' : 'open';
     bets.push({ b, st: st[b.id], cnt, pr: dead ? 0 : all ? 1 : pr, L });

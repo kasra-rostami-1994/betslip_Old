@@ -24,7 +24,7 @@ module.exports = async (q, s) => {
       const data = JSON.parse((await kv(['GET', 'betslip:d:' + u])) || '{"bets":[]}');
       const key = 'betslip:ns:' + u, prev = JSON.parse((await kv(['GET', key])) || 'null');
       const next = { g: {}, b: {}, sumAt: (prev && prev.sumAt) || 0 }, msgs = [], games = {}, info = [];
-      data.bets.filter((b) => !b.arch).forEach((b) => {
+      data.bets.filter((b) => !b.arch || (b.auto && now - b.arch < 36e5)).forEach((b) => {
         let dead = false, all = true, pr = 1; const cnt = { g: 0, b: 0, o: 0, r: 0, n: 0 };
         b.legs.forEach((l) => {
           const x = pick(l, E), [c, d] = C.ev(l.pick, x);
@@ -36,7 +36,7 @@ module.exports = async (q, s) => {
         });
         const st = dead ? 'lost' : all ? 'won' : 'open';
         next.b[b.id] = st;
-        info.push({ b, st, cnt, pr: dead ? 0 : all ? 1 : pr });
+        if (!b.arch) info.push({ b, st, cnt, pr: dead ? 0 : all ? 1 : pr });
         const pv = prev && prev.b[b.id];
         if (pv && pv != st && st != 'open') msgs.push(st == 'won' ? `🏆 بلیت «${b.name}» برنده شد! (برد: ${b.win})` : `❌ بلیت «${b.name}» سوخت.`);
       });
