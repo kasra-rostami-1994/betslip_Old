@@ -1,4 +1,5 @@
-// AUTO-GENERATED from public/index.html (matching + evaluation logic shared with the notifier)
+/* Betslip core: منطق مشترک مرورگر و سرور (این فایل در api/_core.js و public/core.js یکسان است) */
+(function (root, factory) { var m = factory(); if (typeof module !== 'undefined' && module.exports) module.exports = m; else root.Core = m; })(typeof self !== 'undefined' ? self : this, function () {
 const fold=s=>s.toLowerCase().replace(/æ/g,'ae').replace(/[øö]/g,'o').replace(/ß/g,'ss').replace(/ł/g,'l').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9 ]/g,' ');
 const STOP=new Set('fc afc cf sc ac as fk sk bk if real club the city united cd rc ad us kaa krc rsc'.split(' '));
 const AL=[['crvena zvezda','red star'],['inter milan','internazionale'],['athletic bilbao','athletic club'],['olympiacos','olympiakos'],['ofk belgrade','ofk beograd'],['heart of midlothian','hearts'],['prague','praha']];
@@ -52,4 +53,56 @@ const pt1=(p,l)=>{let m;const H=l.home,A=l.away,F={1:'برد '+H,2:'برد '+A,X
  if(m=p.match(/^AH([12])(.+)$/))return'هندیکپ '+(m[1]==1?H:A)+' ('+m[2]+')';return p};
 const pickTxt=(p,l)=>p.split('&').map(q=>pt1(q,l)).join(' + ');
 
-module.exports = { same, mt, ev, pickTxt };
+
+const OCL={HW:'نیم‌برد',P:'بازگشت وجه',HL:'نیم‌باخت'};
+const lbl=(p,x)=>{if(!x||p.includes('&')||p[0]=='Q'||!(x.st=='post'||x.over))return'';const o=chk(p,x.h,x.a)[3];return OCL[o]?' · '+OCL[o]:''};
+const fac=(l,x)=>{if(!x||l.pick.includes('&')||l.pick[0]=='Q'||!(x.st=='post'||x.over))return 1;const o=chk(l.pick,x.h,x.a)[3],O=+l.odds;return o=='HW'?(O+1)/2/O:o=='P'?1/O:o=='HL'?.5/O:1};
+
+const SN = { espn: 'ESPN', sofa: 'Sofascore', fd: 'football-data', apif: 'API-Football', tsdb: 'TheSportsDB' };
+const gk = (l) => fold(l.home) + '|' + fold(l.away);
+// نتیجهٔ یک پا: ورود دستی > نتیجهٔ ذخیره‌شده > رأی‌گیری بین منابع زنده
+function cons(l, LV, now) {
+  now = now || Date.now();
+  if (l.ov) return { h: l.ov.h, a: l.ov.a, w: l.ov.w, st: l.ov.f ? 'post' : 'in', min: l.ov.m || 45, man: 1, clk: l.ov.f ? 'پایان (دستی)' : 'زنده (دستی)' };
+  if (l.fin && !(l.fin.t && new Date(l.fin.t) > now)) return { h: l.fin.h, a: l.fin.a, w: l.fin.w, st: 'post', t: l.fin.t ? new Date(l.fin.t) : null, clk: 'پایان', fin: 1, lg: l.fin.lg || l.lg };
+  const H0 = (LV || []).filter((e) => mt(l, e));
+  if (!H0.length) return null;
+  const bs = {};
+  H0.forEach((e) => { const d = Math.abs(new Date(e.t) - now) || 0; if (!bs[e.s] || d < bs[e.s].d) bs[e.s] = { e, d }; });
+  const H = Object.values(bs).map((v) => v.e), g = {};
+  H.forEach((e) => (g[e.h + '-' + e.a] = g[e.h + '-' + e.a] || []).push(e));
+  const G = Object.values(g).sort((a, b) => b.length - a.length || a[0].p - b[0].p), r = G[0][0];
+  const fut = r.st == 'post' && r.t && new Date(r.t) > now + 6e4;
+  return { h: r.h, a: r.a, st: fut ? 'pre' : r.st, clk: r.pp ? 'تعویق/لغو' : r.clk, min: r.min, t: r.t ? new Date(r.t) : null, over: r.over, w: r.w, aet: r.aet, pp: r.pp, lg: r.lg || (H.find((e) => e.lg) || {}).lg || l.lg, goals: r.goals, ref: r.home + ' – ' + r.away,
+    src: G.map((q) => [[...new Set(q.map((e) => SN[e.s] || e.s))].join('+'), q[0].h + '-' + q[0].a]), cf: G.length > 1 };
+}
+// وضعیت کامل یک بلیت (هم در سایت و هم در سرور/ربات یکسان)
+function betState(b, LV, now) {
+  now = now || Date.now();
+  const L = b.legs.map((l) => { const x = cons(l, LV, now), r = ev(l.pick, x); return { l, x, c: r[0], d: r[1], fin: !!(x && (x.st == 'post' || x.over)) }; });
+  const cnt = { g: 0, b: 0, o: 0, r: 0, n: 0 };
+  let dead = 0, all = 1, wr = 0, near = 0, live = 0, wl = 0, pr = 1, fa = 1, s = 0, finLoss = 0;
+  L.forEach((z) => {
+    cnt[z.c]++;
+    if (z.d) { dead = 1; if (z.fin) finLoss = 1; }
+    if (z.c != 'g') { all = 0; pr /= z.l.odds; }
+    const el = z.x && z.x.st == 'in' ? Math.min(1, (z.x.over ? 90 : z.x.min || 45) / 90) : 0;
+    if (z.c == 'r' && !z.d) { wr++; wl += el; }
+    if (z.c == 'o') near++;
+    if (z.x && z.x.st == 'in') live++;
+    fa *= fac(z.l, z.x);
+    s += z.c == 'r' && !z.d ? 3 * (1 + el) : z.c == 'o' ? 2 * (1 + el) : z.c == 'n' ? (z.x && z.x.t && z.x.t - now < 3 * 36e5 && z.x.t - now > -36e5 ? .5 : .2) : z.c == 'b' ? .2 : 0;
+  });
+  return { b, L, cnt, lost: !!dead, won: !!all, wr, near, live, finLoss: !!finLoss, fa, pr: dead ? 0 : all ? 1 : pr,
+    risk: dead ? -1 : all ? -.5 : wr ? 1000 + wr * 100 + wl * 10 + s : s, cls: dead ? 'lost' : all ? 'won' : wr ? 'wr' : near ? 'near' : live ? 'ok' : 'wait' };
+}
+// امتیاز: برد = ۱۰×ln(ضریب)، باخت = ۵- (فرمول را اینجا تغییر دهید)
+const pts = (b) => (b.res == 'won' ? Math.round(10 * Math.log(b.odds)) : -5);
+const settled = (recs) => recs.filter((b) => b.arch && !b.del && (b.res == 'won' || b.res == 'lost'));
+function summary(recs) {
+  const H = settled(recs), W = H.filter((b) => b.res == 'won'), st = H.reduce((s, b) => s + +b.stake, 0), ret = W.reduce((s, b) => s + b.stake * b.odds, 0);
+  return { n: H.length, won: W.length, lost: H.length - W.length, staked: st, ret, profit: ret - st, roi: st ? (ret - st) / st : 0, score: H.reduce((s, b) => s + pts(b), 0) };
+}
+
+return { fold, same, mt, chk, ev, pt1, pickTxt, lbl, fac, OCL, SN, gk, cons, betState, pts, settled, summary };
+});
