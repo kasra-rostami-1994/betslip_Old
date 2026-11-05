@@ -4,7 +4,17 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': 
 const ls = { g: (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } }, s: (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} } };
 const S = { tok: ls.g('tok') || '', me: ls.g('me') || '', bets: [], trash: [], LV: [], SRC: [], at: null, sync: 'idle', prof: null, tg: null };
 const rid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
-function toast(m, ms) { const t = $('#toast'); if (!t) return; t.innerHTML = '<div>' + esc(m) + '</div>'; clearTimeout(toast.t); toast.t = setTimeout(() => (t.innerHTML = ''), ms || 3500); }
+function toast(m, ms, action) {
+  const t = $('#toast');
+  if (!t) return;
+  let html = '<div>' + esc(m) + '</div>';
+  if (action) {
+    html += '<button class="btn toast-act" data-a="' + esc(action.a) + '"' + (action.id ? ' data-id="' + esc(action.id) + '"' : '') + '>' + esc(action.label) + '</button>';
+  }
+  t.innerHTML = html;
+  clearTimeout(toast.t);
+  toast.t = setTimeout(() => (t.innerHTML = ''), ms || 5000);
+}
 async function api(p, o) {
   o = o || {};
   const r = await fetch(BASE + p, { method: o.method || 'GET', keepalive: !!o.keepalive, headers: Object.assign({ 'content-type': 'application/json' }, S.tok ? { authorization: 'Bearer ' + S.tok } : {}), body: o.body === undefined ? undefined : typeof o.body == 'string' ? o.body : JSON.stringify(o.body) });

@@ -57,6 +57,7 @@ main{padding:26px 0 90px;min-height:70vh}
 .seg{display:flex;gap:2px;height:3px;margin-top:14px;border-radius:2px;overflow:hidden;background:var(--ln)}
 .seg i{display:block;background:var(--c)}
 .acts{display:flex;flex-wrap:wrap;gap:2px 4px;margin:14px -8px -6px;align-items:center}
+.chev{font-size:18px;color:var(--mut);cursor:pointer;user-select:none;padding:4px 8px;margin-top:8px;transition:transform .2s}.chev:hover{color:var(--ink)}
 .acts select{padding:2px 8px;font-size:13px;border-radius:8px}
 .legs{margin-top:14px;border-top:1px dashed var(--ln)}
 .leg{display:grid;grid-template-columns:14px 1fr auto;gap:14px;padding:11px 0;border-bottom:1px solid var(--ln);align-items:center}
