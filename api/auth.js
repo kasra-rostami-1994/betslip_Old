@@ -41,15 +41,23 @@ module.exports = async (q, s) => {
     }
 
     // signup or login
+    // Accept 'user' field (sent by form) as alias for email/username
+    const userField = String(b.user || b.username || b.email || '').trim().toLowerCase();
     const email = String(b.email || '').trim().toLowerCase();
     const username = String(b.username || '').trim().toLowerCase();
     const pass = String(b.pass || '');
     const invite = b.invite || '';
 
+    // If userField provided but email/username not, infer from userField
+    const inferredEmail = userField.includes('@') ? userField : '';
+    const inferredUsername = userField.includes('@') ? '' : userField;
+    const finalEmail = email || inferredEmail;
+    const finalUsername = username || inferredUsername;
+
     // Validation
     if (action === 'signup') {
-      if (!email || !email.includes('@')) return s.status(400).json({ error: 'ایمیل معتبر الزامی است' });
-      if (!username || !/^[a-z0-9_.-]{3,24}$/.test(username)) {
+      if (!finalEmail || !finalEmail.includes('@')) return s.status(400).json({ error: 'ایمیل معتبر الزامی است' });
+      if (!finalUsername || !/^[a-z0-9_.-]{3,24}$/.test(finalUsername)) {
         return s.status(400).json({ error: 'نام کاربری ۳ تا ۲۴ حرف انگلیسی/عدد/نقطه/اندرلاین/خط تیره باشد' });
       }
       if (pass.length < 8) return s.status(400).json({ error: 'رمز عبور حداقل ۸ کاراکتر باشد' });
@@ -57,7 +65,7 @@ module.exports = async (q, s) => {
         return s.status(403).json({ error: 'کد دعوت اشتباه است' });
       }
     } else if (action === 'login') {
-      if ((!email && !username) || !pass) {
+      if ((!finalEmail && !finalUsername) || !pass) {
         return s.status(400).json({ error: 'ایمیل/نام کاربری و رمز عبور الزامی است' });
       }
     } else {
@@ -67,16 +75,16 @@ module.exports = async (q, s) => {
     let user;
     if (action === 'signup') {
       // Check if email or username already exists
-      const existingEmail = await DB.findUserByEmail(email);
+      const existingEmail = await DB.findUserByEmail(finalEmail);
       if (existingEmail) return s.status(409).json({ error: 'این ایمیل قبلاً ثبت شده است' });
-      const existingUser = await DB.findUserByUsername(username);
+      const existingUser = await DB.findUserByUsername(finalUsername);
       if (existingUser) return s.status(409).json({ error: 'این نام کاربری قبلاً ثبت شده است' });
 
       // Create user
-      user = await DB.createUser({ email, username, password: pass, name: username });
+      user = await DB.createUser({ email: finalEmail, username: finalUsername, password: pass, name: finalUsername });
     } else {
       // login
-      user = await DB.authenticateUser(email || username, pass);
+      user = await DB.authenticateUser(finalEmail || finalUsername, pass);
       if (!user) return s.status(401).json({ error: 'ایمیل/نام کاربری یا رمز اشتباه است' });
     }
 
