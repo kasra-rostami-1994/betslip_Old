@@ -1,34 +1,90 @@
-// Upstash Redis از طریق REST (بدون وابستگی) + ابزارهای حساب کاربری و پروفایل
+// Upstash Redis replaced by MongoDB — thin wrapper over _db.js
 const crypto = require('crypto');
 const C = require('./_core');
-const U = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
-const T = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
-const kv = async (cmd) => {
-  if (!U || !T) throw new Error('دیتابیس به پروژه وصل نیست');
-  const r = await fetch(U, { method: 'POST', headers: { Authorization: 'Bearer ' + T }, body: JSON.stringify(cmd) });
-  const j = await r.json();
-  if (j.error) throw new Error(j.error);
-  return j.result;
-};
+const DB = require('./_db');
+
 const token = (q) => String(q.headers.authorization || '').replace(/^Bearer /, '');
-const hkey = (u) => 'betslip:b:' + u; // هر بلیت یک فیلد جدا در هش است (جلوگیری از بازنویسی کل داده)
+
+// User/session helpers using MongoDB
+async function getUserFromToken(req) {
+  const t = token(req);
+  if (t.length < 20) return null;
+  try {
+    return await DB.getSession(t);
+  } catch (e) {
+    return null;
+  }
+}
+
+async function getUserProfile(userId) {
+  return DB.findUserById(userId);
+}
+
+async function ensureUserProfile(userId) {
+  const prof = await DB.findUserById(userId);
+  if (!prof) throw new Error('User not found');
+  return prof;
+}
+
+async function recomputeUserStats(userId) {
+  return DB.updateUserStats(userId);
+}
+
+// Redis-like helpers for compatibility (not used in new code)
+const kv = async (cmd) => {
+  throw new Error('kv() is deprecated — use _db.js directly');
+};
+const hkey = (u) => `betslip:b:${u}`;
 const parse = (arr) => (arr || []).map((x) => { try { return JSON.parse(x); } catch (e) { return null; } }).filter(Boolean);
-const getRecs = async (u) => parse(await kv(['HVALS', hkey(u)]));
-const profile = async (u) => { const v = await kv(['HGET', 'betslip:prof', u]); return v ? JSON.parse(v) : null; };
-const ensureProfile = async (u) => {
-  let p = await profile(u);
-  if (!p) { p = { u, name: u, bio: '', pub: false, dvis: 'private', joined: Date.now(), score: 0, stats: { n: 0, won: 0, lost: 0, roi: 0 } }; await kv(['HSET', 'betslip:prof', u, JSON.stringify(p)]); }
-  return p;
-};
-const recompute = async (u) => {
-  const recs = await getRecs(u), p = await ensureProfile(u), sm = C.summary(recs);
-  p.score = sm.score; p.stats = { n: sm.n, won: sm.won, lost: sm.lost, roi: sm.roi }; p.upd = Date.now();
-  await kv(['HSET', 'betslip:prof', u, JSON.stringify(p)]);
-  return p;
-};
+
 module.exports = {
-  kv, token, hkey, parse, getRecs, profile, ensureProfile, recompute,
-  user: async (q) => { const t = token(q); if (t.length < 20) return null; try { return await kv(['GET', 'betslip:sess:' + t]); } catch (e) { return null; } },
+  kv, token, hkey, parse,
+  getRecs: async (u) => { throw new Error('getRecs deprecated'); },
+  profile: async (u) => { throw new Error('profile deprecated'); },
+  ensureProfile: async (u) => { throw new Error('ensureProfile deprecated'); },
+  recompute: async (u) => { throw new Error('recompute deprecated'); },
+  user: getUserFromToken,
+  getUserProfile,
+  ensureUserProfile,
+  recomputeUserStats,
   hash: (p, salt) => crypto.scryptSync(p, salt, 32).toString('hex'),
   rand: (n) => crypto.randomBytes(n).toString('hex'),
+  // New MongoDB helpers
+  DB,
+  createUser: DB.createUser,
+  findUserByEmail: DB.findUserByEmail,
+  findUserByUsername: DB.findUserByUsername,
+  authenticateUser: DB.authenticateUser,
+  createSession: DB.createSession,
+  deleteSession: DB.deleteSession,
+  deleteAllUserSessions: DB.deleteAllUserSessions,
+  getUserBets: DB.getUserBets,
+  getBetById: DB.getBetById,
+  getBetByShareToken: DB.getBetByShareToken,
+  createBet: DB.createBet,
+  updateBet: DB.updateBet,
+  deleteBet: DB.deleteBet,
+  restoreBet: DB.restoreBet,
+  archiveBet: DB.archiveBet,
+  unarchiveBet: DB.unarchiveBet,
+  getPublicBets: DB.getPublicBets,
+  followUser: DB.followUser,
+  unfollowUser: DB.unfollowUser,
+  getFollowers: DB.getFollowers,
+  getFollowing: DB.getFollowing,
+  isFollowing: DB.isFollowing,
+  upsertMatches: DB.upsertMatches,
+  getMatchesForBets: DB.getMatchesForBets,
+  createDailyBackup: DB.createDailyBackup,
+  getBackups: DB.getBackups,
+  getBackup: DB.getBackup,
+  updateUserProfile: DB.updateUserProfile,
+  updateUserStats: DB.updateUserStats,
+  // Lock & notification helpers
+  acquireLock: DB.acquireLock,
+  releaseLock: DB.releaseLock,
+  getNotificationSkip: DB.getNotificationSkip,
+  setNotificationSkip: DB.setNotificationSkip,
+  setLastNotifyResult: DB.setLastNotifyResult,
+  getLastNotifyResult: DB.getLastNotifyResult,
 };

@@ -1,36 +1,80 @@
-// پروفایل کاربر، پروفایل عمومی دیگران و رتبه‌بندی (پایهٔ بخش اجتماعی)
-const { kv, user, getRecs, ensureProfile, profile, recompute } = require('./_lib');
-const pubBet = (b) => ({ id: b.id, name: b.name, odds: b.odds, arch: b.arch, res: b.res, created: b.created, legs: b.legs });
+// User profile, public profiles, and leaderboard — MongoDB version
+const { DB, token, user } = require('./_lib');
+
+const publicBet = (b) => ({
+  id: b._id?.toString() || b.id,
+  name: b.name, odds: b.odds,
+  archivedAt: b.archivedAt, result: b.result, createdAt: b.createdAt,
+  legs: b.legs,
+});
+
 module.exports = async (q, s) => {
   try {
     const Q = q.query || {};
+
+    // Leaderboard (public profiles only)
     if (q.method === 'GET' && Q.board) {
-      const all = (await kv(['HVALS', 'betslip:prof'])) || [];
-      const rows = all.map((x) => { try { return JSON.parse(x); } catch (e) { return null; } }).filter((p) => p && p.pub)
-        .map((p) => ({ u: p.u, name: p.name, score: p.score || 0, n: p.stats.n, won: p.stats.won, lost: p.stats.lost, roi: p.stats.roi }))
-        .sort((a, b) => b.score - a.score).slice(0, 50);
+      const users = await DB.User.find({ isPublic: true })
+        .select('username name score statsCache updatedAt')
+        .sort({ 'statsCache.score': -1 })
+        .limit(50)
+        .lean();
+
+      const rows = users.map(p => ({
+        u: p.username, name: p.name,
+        score: p.statsCache?.score || 0,
+        n: p.statsCache?.totalBets || 0,
+        won: p.statsCache?.wonBets || 0,
+        lost: p.statsCache?.lostBets || 0,
+        roi: p.statsCache?.roi || 0,
+      }));
+
       s.setHeader('Cache-Control', 's-maxage=30, stale-while-revalidate=60');
       return s.json({ rows });
     }
+
+    // Public profile by username
     if (q.method === 'GET' && Q.u) {
-      const p = await profile(String(Q.u).toLowerCase());
-      if (!p || !p.pub) return s.status(404).json({ error: 'not found' });
-      const bets = (await getRecs(p.u)).filter((b) => b.vis === 'public' && !b.del).sort((a, b) => (b.created || 0) - (a.created || 0)).slice(0, 60).map(pubBet);
+      const targetUser = await DB.findUserByUsername(String(Q.u).toLowerCase());
+      if (!targetUser || !targetUser.isPublic) return s.status(404).json({ error: 'not found' });
+
+      const bets = await DB.getPublicBets(targetUser._id.toString());
       s.setHeader('Cache-Control', 's-maxage=20, stale-while-revalidate=60');
-      return s.json({ profile: { u: p.u, name: p.name, bio: p.bio, joined: p.joined, score: p.score || 0, stats: p.stats }, bets });
+      return s.json({
+        profile: {
+          u: targetUser.username, name: targetUser.name, bio: targetUser.bio,
+          joined: targetUser.joinedAt, score: targetUser.statsCache?.score || 0, stats: targetUser.statsCache,
+        },
+        bets: bets.map(publicBet),
+      });
     }
+
+    // Own profile
     const me = await user(q);
     if (!me) return s.status(401).json({ error: 'unauthorized' });
-    if (q.method === 'GET') return s.json({ profile: Q.fresh ? await recompute(me) : await ensureProfile(me) });
-    if (q.method === 'PUT') {
-      const b = typeof q.body === 'string' ? JSON.parse(q.body) : q.body || {}, p = await ensureProfile(me);
-      if (typeof b.name === 'string') p.name = b.name.trim().slice(0, 30) || me;
-      if (typeof b.bio === 'string') p.bio = b.bio.trim().slice(0, 160);
-      if (typeof b.pub === 'boolean') p.pub = b.pub;
-      if (['private', 'link', 'public'].includes(b.dvis)) p.dvis = b.dvis;
-      await kv(['HSET', 'betslip:prof', me, JSON.stringify(p)]);
-      return s.json({ profile: p });
+
+    if (q.method === 'GET') {
+      const profile = await DB.getUserProfile(me);
+      if (Q.fresh) await DB.updateUserStats(me);
+      return s.json({ profile });
     }
+
+    if (q.method === 'PUT') {
+      const body = typeof q.body === 'string' ? JSON.parse(q.body) : (q.body || {});
+      const allowed = ['name', 'bio', 'isPublic', 'defaultVis', 'timezone', 'prefs'];
+      const update = {};
+      for (const k of allowed) if (body[k] !== undefined) update[k] = body[k];
+
+      if (update.name) update.name = String(update.name).trim().slice(0, 30) || profile.username;
+      if (update.bio) update.bio = String(update.bio).trim().slice(0, 160);
+
+      const updated = await DB.updateUserProfile(me, update);
+      return s.json({ profile: updated });
+    }
+
     s.status(405).end();
-  } catch (e) { s.status(500).json({ error: String(e.message || e) }); }
+  } catch (e) {
+    console.error('Profile API error:', e);
+    s.status(500).json({ error: String(e.message || e) });
+  }
 };
