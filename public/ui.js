@@ -162,8 +162,15 @@ function vCompare() {
   <div><h4>${esc(p2.name)}</h4>${d2.bets.length ? d2.bets.map(b => betRow(b, Core.betState(b, S.LV), 'pub')).join('') : '<div class="empty">بلیت عمومی‌ای ندارد.</div>'}</div>
 </div></div>`;
 }
+function vSocial() {
+  if (!S.tok) return '<div class="empty">برای استفاده از بخش اجتماعی باید وارد شوید.</div>';
+  return `<div class="bar"><h2 style="font-size:22px">بخش اجتماعی</h2><span class="sp"></span></div>
+<div class="card"><h3>جستجوی کاربران</h3><input id="social-search" placeholder="نام کاربری یا نام نمایشی..." style="width:100%;margin-bottom:12px"><div id="social-results" class="mut sm">حداقل ۲ کاراکتر تایپ کنید.</div></div>
+<div class="card"><h3>کاربرانی که دنبال می‌کنید</h3><div id="social-following" class="mut sm">در حال دریافت…</div></div>
+<div class="card"><h3>دنبال‌کنندگان شما</h3><div id="social-followers" class="mut sm">در حال دریافت…</div></div>`;
+}
 /* ---- پوسته، مسیریابی و رندر ---- */
-const TABS = [['bets', 'بلیت‌ها'], ['risk', 'ریسک'], ['hist', 'تاریخچه'], ['stats', 'آمار'], ['board', 'رتبه‌بندی']];
+const TABS = [['bets', 'بلیت‌ها'], ['risk', 'ریسک'], ['hist', 'تاریخچه'], ['stats', 'آمار'], ['board', 'رتبه‌بندی'], ['social', 'اجتماعی']];
 function mountShell() {
   $('#root').innerHTML = `<header><div class="wrap hd"><div class="brand" data-a="go" data-v="bets"><i></i>betslip</div><nav id="nav"></nav><span id="sync" data-s="idle"></span><div id="acc"></div></div></header><main class="wrap" id="view"></main><footer id="ver"></footer><div id="menu" class="menu" hidden></div><div id="dlg"></div><div id="toast"></div>`;
   $('#ver').textContent = 'Betslip - Update: ' + VER;
@@ -177,7 +184,7 @@ function render() {
   compute(); renderHead(); const v = $('#view'); let h = '';
   switch (U.tab) {
     case 'bets': h = vBets(); break; case 'risk': h = vRisk(); break; case 'hist': h = vHist(); break; case 'stats': h = vStats(); break;
-    case 'trash': h = vTrash(); break; case 'board': h = vBoard(); break; case 'me': h = vMe(); break; case 'u': h = vUser(); break; case 'share': h = vShare(); break; case 'compare': h = vCompare(); break;
+    case 'trash': h = vTrash(); break; case 'board': h = vBoard(); break; case 'me': h = vMe(); break; case 'u': h = vUser(); break; case 'share': h = vShare(); break; case 'compare': h = vCompare(); break; case 'social': h = vSocial(); break;
   }
   v.innerHTML = h; bulk();
   if (R.auto) toast(R.auto + ' بلیت به‌دلیل باخت قطعی خودکار به بایگانی رفت.', 6000);

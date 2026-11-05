@@ -56,7 +56,7 @@ const ACT = {
   pd: (a) => { if (!confirm('برای همیشه حذف شود؟')) return; S.trash = S.trash.filter((x) => x.id != a.dataset.id); save(); render(); },
   emp: () => { if (!confirm('سطل خالی شود؟')) return; S.trash = []; save(); render(); },
   exp: () => exportJson(), imp: () => $('#fi').click(), bak: () => openBackup(), tg: () => openTg(),
-  out: async () => { try { await api('/api/auth', { method: 'POST', body: { action: 'logout' } }); } catch (e) {} ['tok', 'me'].forEach((k) => ls.s(k, '')); S.tok = ''; S.me = ''; S.bets = []; S.trash = []; S.prof = null; SNAP = {}; U.entry = null; location.hash = '#/board'; route(); render(); showLogin(); },
+  out: async () => { try { await api('/api/auth', { method: 'POST', body: { action: 'logout' } }); } catch (e) {} ['tok', 'me', 'userId'].forEach((k) => ls.s(k, '')); S.tok = ''; S.me = ''; S.userId = ''; S.bets = []; S.trash = []; S.prof = null; SNAP = {}; U.entry = null; location.hash = '#/board'; route(); render(); showLogin(); },
   saveprof: async () => { try { const j = await api('/api/profile', { method: 'PUT', body: { name: $('#pf-name').value, bio: $('#pf-bio').value, pub: $('#pf-pub').checked, dvis: $('#pf-vis').value } }); S.prof = j.profile; U.board = null; toast('پروفایل ذخیره شد'); render(); } catch (e) { toast(e.message); } },
   copyprof: () => copy(location.origin + BASE + '/?u=' + S.me),
   compare: (a) => go('compare/' + encodeURIComponent(a.dataset.u1) + '/' + encodeURIComponent(a.dataset.u2)),

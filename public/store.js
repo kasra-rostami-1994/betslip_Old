@@ -2,7 +2,7 @@
 const $ = (s) => document.querySelector(s), $$ = (s) => [...document.querySelectorAll(s)];
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const ls = { g: (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } }, s: (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} } };
-const S = { tok: ls.g('tok') || '', me: ls.g('me') || '', bets: [], trash: [], LV: [], SRC: [], at: null, sync: 'idle', prof: null, tg: null };
+const S = { tok: ls.g('tok') || '', me: ls.g('me') || '', userId: ls.g('userId') || '', bets: [], trash: [], LV: [], SRC: [], at: null, sync: 'idle', prof: null, tg: null };
 const rid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 function toast(m, ms, action) {
   const t = $('#toast');

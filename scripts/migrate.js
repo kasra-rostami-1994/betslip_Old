@@ -1,6 +1,7 @@
 /* scripts/migrate.js — Redis → MongoDB migration script
    Run locally: node scripts/migrate.js
    Requires: MONGODB_URI, KV_REST_API_URL, KV_REST_API_TOKEN in env
+   Creates a single default account (Kasra_rostami) and migrates ALL data to it.
 */
 require('dotenv').config({ path: require('path').resolve(__dirname, '../.env') });
 const crypto = require('crypto');
@@ -36,7 +37,7 @@ function genSalt() { return crypto.randomBytes(16).toString('hex'); }
 function genToken() { return crypto.randomBytes(24).toString('hex'); }
 function genShareToken() { return crypto.randomBytes(12).toString('hex'); }
 
-// --- Mongoose Models (inline for migration script) ---
+// --- Mongoose Models ---
 const userSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true, lowercase: true, index: true },
   username: { type: String, required: true, unique: true, lowercase: true, index: true },
@@ -105,16 +106,13 @@ const Session = mongoose.model('Session', sessionSchema);
 const TgConfig = mongoose.model('TgConfig', tgConfigSchema);
 const Migration = mongoose.model('Migration', migrationSchema);
 
-// --- Helper: normalize old password hash ---
-function normalizeOldHash(oldHash) {
-  // old _lib.js stored scrypt hash directly; new format is "salt:hash"
-  // If it already contains ':', assume it's new format
-  if (oldHash && oldHash.includes(':')) return oldHash;
-  // Otherwise, we can't recover salt. We'll need user to reset password.
-  // For migration, generate new salt and mark for password reset.
-  const salt = genSalt();
-  return `${salt}:${oldHash}`; // This won't verify, user must reset
-}
+// --- Default Account Credentials ---
+const DEFAULT_USER = {
+  username: 'kasra_rostami',
+  email: 'rkasra18@gmail.com',
+  password: '920771018',
+  name: 'Kasra Rostami',
+};
 
 // --- Migration Logic ---
 async function migrate() {
@@ -122,28 +120,65 @@ async function migrate() {
   await mongoose.connect(MONGODB_URI, { dbName: 'betslip', bufferCommands: false });
   console.log('✅ Connected');
 
-  // Get all user keys from Redis
-  console.log('🔍 Scanning Redis for users...');
-  const allKeys = await kv(['KEYS', 'betslip:prof:*']); // or use SCAN for production
-  const userKeys = allKeys.filter(k => k.startsWith('betslip:prof:'));
-  console.log(`👥 Found ${userKeys.length} user profiles`);
+  // 1. Create or get the default account
+  console.log('👤 Creating/getting default account...');
+  let defaultUser = await User.findOne({ username: DEFAULT_USER.username }).lean();
 
-  let migrated = 0, skipped = 0, errors = 0;
+  if (!defaultUser) {
+    console.log('  Creating new default account...');
+    const salt = genSalt();
+    const passwordHash = hashPassword(DEFAULT_USER.password, salt);
+
+    const user = new User({
+      email: DEFAULT_USER.email,
+      username: DEFAULT_USER.username,
+      passwordHash: `${salt}:${passwordHash}`,
+      name: DEFAULT_USER.name,
+      bio: '',
+      isPublic: false,
+      defaultVis: 'private',
+      timezone: 'Europe/Istanbul',
+      joinedAt: new Date(),
+      lastActiveAt: new Date(),
+      prefs: {},
+      telegram: { connected: false },
+      statsCache: { totalBets: 0, wonBets: 0, lostBets: 0, totalStaked: 0, totalReturn: 0, roi: 0, score: 0, updatedAt: new Date() },
+    });
+    await user.save();
+    defaultUser = user.toObject();
+    console.log(`  ✅ Default account created: ${DEFAULT_USER.username}`);
+  } else {
+    // Update password to the specified one
+    const salt = genSalt();
+    const passwordHash = hashPassword(DEFAULT_USER.password, salt);
+    await User.findByIdAndUpdate(defaultUser._id, {
+      passwordHash: `${salt}:${passwordHash}`,
+      email: DEFAULT_USER.email,
+      name: DEFAULT_USER.name,
+      updatedAt: new Date()
+    });
+    console.log(`  ✅ Default account exists, password updated: ${DEFAULT_USER.username}`);
+  }
+
+  const defaultUserId = defaultUser._id.toString();
+
+  // 2. Get all user keys from Redis
+  console.log('🔍 Scanning Redis for users...');
+  const allKeys = await kv(['KEYS', 'betslip:prof:*']);
+  const userKeys = allKeys.filter(k => k.startsWith('betslip:prof:'));
+  console.log(`👥 Found ${userKeys.length} user profiles in Redis`);
+
+  // Collect all data from all users
+  let allBets = [];
+  let allTgConfigs = [];
+  let allSessions = [];
+  let totalBets = 0;
+  let totalUsers = 0;
 
   for (const profKey of userKeys) {
     const username = profKey.replace('betslip:prof:', '');
     try {
-      // Check if already migrated
-      const existingMig = await Migration.findOne({ userId: { $exists: false } }).lean(); // placeholder
-      // Better: check by username in User collection
-      const existingUser = await User.findOne({ username }).lean();
-      if (existingUser) {
-        console.log(`  ⏭ ${username} already migrated`);
-        skipped++;
-        continue;
-      }
-
-      console.log(`  🔄 Migrating ${username}...`);
+      console.log(`  🔄 Processing ${username}...`);
 
       // 1. Get profile
       const profRaw = await kv(['HGET', 'betslip:prof', username]);
@@ -154,7 +189,6 @@ async function migrate() {
       const bets = (betsRaw || []).map(b => JSON.parse(b)).filter(Boolean);
 
       // 3. Get trash (old structure might have trash in separate key)
-      // Check old single-blob format
       const oldBlob = await kv(['GET', `betslip:d:${username}`]);
       let oldBets = [];
       if (oldBlob) {
@@ -169,65 +203,27 @@ async function migrate() {
       const tgConfig = tgRaw ? JSON.parse(tgRaw) : null;
 
       // 5. Get sessions (for this user)
-      // Sessions are stored as betslip:sess:<token> -> username
-      // We'll need to scan all session keys
       const sessionKeys = await kv(['KEYS', 'betslip:sess:*']);
       const userSessions = [];
       for (const sk of sessionKeys) {
         const val = await kv(['GET', sk]);
         if (val === username) {
           const token = sk.replace('betslip:sess:', '');
-          userSessions.push({ token, createdAt: new Date() }); // approximate
+          userSessions.push({ token, createdAt: new Date() });
         }
       }
 
-      // --- Create User ---
-      const salt = genSalt();
-      const tempPassword = crypto.randomBytes(16).toString('hex'); // user must reset
-      const passwordHash = hashPassword(tempPassword, salt);
-
-      const user = new User({
-        email: `${username}@migrate.local`, // placeholder, user must update
-        username: username.toLowerCase(),
-        passwordHash: `${salt}:${hashPassword(tempPassword, salt)}`,
-        name: prof?.name || username,
-        bio: prof?.bio || '',
-        isPublic: prof?.pub || false,
-        defaultVis: prof?.dvis || 'private',
-        timezone: prof?.timezone || 'Europe/Istanbul',
-        joinedAt: prof?.joined ? new Date(prof.joined) : new Date(),
-        lastActiveAt: new Date(),
-        prefs: prof?.prefs || {},
-        telegram: tgConfig ? {
-          connected: !!tgConfig.token,
-          chatId: tgConfig.chat,
-          token: tgConfig.token,
-          webhookSecret: tgConfig.hs,
-          base: tgConfig.base,
-          notifyPrefs: {
-            kickoff: tgConfig.st !== false,
-            goal: tgConfig.gl !== false,
-            ft: tgConfig.en !== false,
-            betResult: true,
-            digest: tgConfig.sum === undefined ? 15 : +tgConfig.sum,
-          },
-        } : { connected: false },
-        statsCache: prof?.stats || { totalBets: 0, wonBets: 0, lostBets: 0, totalStaked: 0, totalReturn: 0, roi: 0, score: 0, updatedAt: new Date() },
-      });
-      await user.save();
-      const userId = user._id;
-
-      // --- Create Bets ---
-      const allBets = [...bets, ...oldBets.filter(b => !bets.find(x => x.id === b.id))];
-      if (allBets.length) {
-        const betDocs = allBets.map(b => {
-          // Generate shareToken if visible and not present
+      // Merge bets from this user into allBets
+      const userAllBets = [...bets, ...oldBets.filter(b => !bets.find(x => x.id === b.id))];
+      if (userAllBets.length) {
+        // Update userId for all bets to defaultUserId
+        const betDocs = userAllBets.map(b => {
           let shareToken = b.share;
           if (!shareToken && b.vis !== 'private') shareToken = genShareToken();
           else if (b.vis === 'private') shareToken = undefined;
 
           return {
-            userId,
+            userId: defaultUserId,
             name: b.name || `multi ${b.legs?.length || 0}`,
             stake: b.stake || 0,
             odds: b.odds || 0,
@@ -254,25 +250,14 @@ async function migrate() {
             })),
           };
         });
-        await Bet.insertMany(betDocs, { ordered: false });
+        allBets.push(...betDocs);
+        totalBets += betDocs.length;
       }
 
-      // --- Create Sessions ---
-      if (userSessions.length) {
-        const sessionDocs = userSessions.map(s => ({
-          token: s.token,
-          userId,
-          createdAt: s.createdAt,
-          userAgent: 'migrated',
-          ip: '0.0.0.0',
-        }));
-        await Session.insertMany(sessionDocs, { ordered: false });
-      }
-
-      // --- Create TgConfig ---
+      // Merge telegram config (keep the first one found, or merge)
       if (tgConfig && tgConfig.token) {
-        await TgConfig.create({
-          userId,
+        allTgConfigs.push({
+          userId: defaultUserId,
           token: tgConfig.token,
           chatId: tgConfig.chat,
           on: tgConfig.on !== false,
@@ -285,21 +270,82 @@ async function migrate() {
         });
       }
 
-      // --- Mark Migration ---
-      await Migration.create({ userId, status: 'done', migratedAt: new Date() });
+      // Merge sessions
+      for (const sk of sessionKeys) {
+        const val = await kv(['GET', sk]);
+        if (val === username) {
+          const token = sk.replace('betslip:sess:', '');
+          allSessions.push({ token, createdAt: new Date(), userAgent: 'migrated', ip: '0.0.0.0' });
+        }
+      }
 
-      console.log(`  ✅ ${username} migrated (${allBets.length} bets, ${userSessions.length} sessions)`);
-      migrated++;
+      totalUsers++;
+      console.log(`  ✅ ${username}: ${userAllBets.length} bets, ${userSessions.length} sessions, ${tgConfig?.token ? 'TG' : 'no TG'}`);
+
     } catch (e) {
       console.error(`  ❌ ${username} failed:`, e.message);
-      errors++;
     }
   }
 
+  // 3. Save all merged data to MongoDB
+  console.log('\n💾 Saving merged data to MongoDB...');
+
+  // Save bets
+  if (allBets.length) {
+    await Bet.insertMany(allBets, { ordered: false });
+    console.log(`  ✅ Saved ${allBets.length} bets`);
+  }
+
+  // Save telegram config (use the first one, or merge if multiple)
+  if (allTgConfigs.length) {
+    const tgConfig = allTgConfigs[0]; // Use first one
+    await TgConfig.findOneAndUpdate(
+      { userId: defaultUserId },
+      { $set: tgConfig },
+      { upsert: true, new: true }
+    );
+    console.log(`  ✅ Saved Telegram config`);
+  }
+
+  // Save sessions
+  if (allSessions.length) {
+    await Session.insertMany(allSessions, { ordered: false });
+    console.log(`  ✅ Saved ${allSessions.length} sessions`);
+  }
+
+  // 4. Update default user's stats
+  const settledBets = allBets.filter(b => b.result === 'won' || b.result === 'lost');
+  const wonBets = settledBets.filter(b => b.result === 'won');
+  const totalStaked = allBets.reduce((s, b) => s + (b.stake || 0), 0);
+  const totalReturn = wonBets.reduce((s, b) => s + (b.stake || 0) * (b.odds || 0), 0);
+  const score = wonBets.reduce((s, b) => s + Math.round(10 * Math.log(b.odds || 1)), 0) - settledBets.length * 5;
+
+  await User.findByIdAndUpdate(defaultUserId, {
+    $set: {
+      statsCache: {
+        totalBets: settledBets.length,
+        wonBets: wonBets.length,
+        lostBets: settledBets.length - wonBets.length,
+        totalStaked,
+        totalReturn,
+        roi: totalStaked ? (totalReturn - totalStaked) / totalStaked : 0,
+        score,
+        updatedAt: new Date(),
+      },
+      lastActiveAt: new Date(),
+    }
+  });
+  console.log(`  ✅ Updated user stats`);
+
+  // 5. Mark migration as done
+  await Migration.create({ userId: defaultUserId, status: 'done', migratedAt: new Date() });
+
   console.log(`\n📊 Migration Summary:`);
-  console.log(`  ✅ Migrated: ${migrated}`);
-  console.log(`  ⏭ Skipped: ${skipped}`);
-  console.log(`  ❌ Errors: ${errors}`);
+  console.log(`  👥 Source users: ${totalUsers}`);
+  console.log(`  🎫 Total bets migrated: ${totalBets}`);
+  console.log(`  🤖 Telegram configs: ${allTgConfigs.length}`);
+  console.log(`  🔐 Sessions: ${allSessions.length}`);
+  console.log(`  ✅ Default account: ${DEFAULT_USER.username} (${DEFAULT_USER.email})`);
 
   await mongoose.disconnect();
   console.log('🔌 Disconnected');
