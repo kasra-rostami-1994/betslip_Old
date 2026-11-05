@@ -53,7 +53,7 @@ function hrows(title, rows, o) {
   const body = rows.length ? rows.map(([k, v]) => { const rate = v.n ? v.w / v.n : 0, c = o.profit ? clrP(v.p) : rate >= (v.n ? v.e / v.n : 0) && o.exp ? 'var(--g)' : o.exp ? 'var(--o)' : 'var(--ink)'; const val = o.profit ? Math.min(100, Math.abs(v.p) / (o.max || 1) * 100) : rate * 100; return `<div class="tr"><span>${esc(k)}</span><div class="bx"><i style="width:${val}%;background:${c}"></i>${o.exp ? `<u style="inset-inline-start:${Math.min(99, (v.e / v.n) * 100)}%"></u>` : ''}</div><span>${o.profit ? sgn(v.p) + ' · ' : ''}${Math.round(rate * 100)}% · ${v.w}/${v.n}</span></div>`; }).join('') : '<div class="mut sm">داده‌ای نیست</div>';
   return `<div class="card"><h3>${title}</h3>${body}${o.exp ? '<div class="mut sm" style="margin-top:6px">خط عمودی = درصدی که ضرایب نشان می‌دادند</div>' : ''}</div>`;
 }
-const kp = (v, l, c) => `<div class="kpi"><b${c ? ` style="color:${c}"` : ''}>${v}</b><span>${l}</span></div>`;
+const kp = (v, l, c) => `<div class="kpi"><div class="kpi-val"${c ? ` style="color:${c}"` : ''}>${v}</div><div class="kpi-label">${l}</div></div>`;
 function vStats() {
   const rg = U.range, D = statRows(rg), K = kpis(D), gran = U.gran == 'auto' ? (rg == 'all' || +rg > 90 ? 'month' : +rg > 30 ? 'week' : 'day') : U.gran;
   const B = {}; D.forEach((h) => { const q = bucketOf(h.t, gran); (B[q.k] = B[q.k] || { l: q.l, t: q.t, v: 0, n: 0, w: 0 }); B[q.k].v += h.p; B[q.k].n++; if (h.w) B[q.k].w++; });
