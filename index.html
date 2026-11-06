@@ -209,23 +209,24 @@ function toPick(sel,h){const s=sel.trim(),m=s.match(/^(over|under)\s+([\d.]+)$/i
  return fold(s).trim()==fold(h).trim()?'1':'2'}
 
 // ---- Bet Builder parser ----
-// Values come AFTER all headers, not immediately after each header
+// Supports both formats: with asterisk (* Odds) and without (Odds)
 function parseBetBuilder(t){
   const L=t.split('\n').map(s=>s.trim()).filter(s=>s);
-  const hasBuilderHeader = L.some(s=>/^\*\s*Odds/i.test(s)) && L.some(s=>/^\*\s*Stake/i.test(s)) && L.some(s=>/^\*\s*Potential win/i.test(s));
+  // Check for Bet Builder signature - supports both *Odds and Odds formats
+  const hasBuilderHeader = L.some(s=>/^\*?\s*Odds/i.test(s)) && L.some(s=>/^\*?\s*Stake/i.test(s)) && L.some(s=>/^\*?\s*Potential win/i.test(s));
   if(!hasBuilderHeader) return null;
 
-  const oddsIdx = L.findIndex(s=>/^\*\s*Odds/i.test(s));
-  const stakeIdx = L.findIndex(s=>/^\*\s*Stake/i.test(s));
-  const winIdx = L.findIndex(s=>/^\*\s*Potential win/i.test(s));
+  const oddsIdx = L.findIndex(s=>/^\*?\s*Odds/i.test(s));
+  const stakeIdx = L.findIndex(s=>/^\*?\s*Stake/i.test(s));
+  const winIdx = L.findIndex(s=>/^\*?\s*Potential win/i.test(s));
   const headerEnd = Math.min(oddsIdx, stakeIdx, winIdx);
 
-  // Values are the lines AFTER all headers that start with * and a number
-  const valueLines = L.slice(headerEnd + 1).filter(s=>/^\*\s*[\d.,]/.test(s));
+  // Values are the lines AFTER all headers that start with optional * and a number
+  const valueLines = L.slice(headerEnd + 1).filter(s=>/^\*?\s*[\d.,]/.test(s));
   let odds=1, stake=1, win=null;
-  if(valueLines.length >= 1) odds = num(valueLines[0].match(/^\*\s*([\d.,]+)/)?.[1] || 1);
-  if(valueLines.length >= 2) stake = num(valueLines[1].match(/^\*\s*([\d.,]+)/)?.[1] || 1);
-  if(valueLines.length >= 3) win = num(valueLines[2].match(/^\*\s*([\d.,]+)/)?.[1] || null);
+  if(valueLines.length >= 1) odds = num(valueLines[0].match(/^\*?\s*([\d.,]+)/)?.[1] || 1);
+  if(valueLines.length >= 2) stake = num(valueLines[1].match(/^\*?\s*([\d.,]+)/)?.[1] || 1);
+  if(valueLines.length >= 3) win = num(valueLines[2].match(/^\*?\s*([\d.,]+)/)?.[1] || null);
   if(!win) win = +(stake*odds).toFixed(2);
 
   const contentLines = L.slice(0, headerEnd);

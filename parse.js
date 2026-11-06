@@ -7,26 +7,27 @@ function toPick(sel,h){const s=sel.trim(),m=s.match(/^(over|under)\s+([\d.]+)$/i
  return fold(s).trim()==fold(h).trim()?'1':'2'}
 
 // ---- Bet Builder parser ----
-// Detects format with multiple conditions per match, team line, then * Odds/* Stake/* Potential win at end
-// Values come AFTER all headers, not immediately after each header
+// Detects format with multiple conditions per match, team line, then Odds/Stake/Potential win at end
+// Supports both formats: with asterisk (* Odds) and without (Odds)
 function parseBetBuilder(t){
   const L=t.split('\n').map(s=>s.trim()).filter(s=>s);
-  // Check for Bet Builder signature
-  const hasBuilderHeader = L.some(s=>/^\*\s*Odds/i.test(s)) && L.some(s=>/^\*\s*Stake/i.test(s)) && L.some(s=>/^\*\s*Potential win/i.test(s));
+
+  // Check for Bet Builder signature - supports both *Odds and Odds formats
+  const hasBuilderHeader = L.some(s=>/^\*?\s*Odds/i.test(s)) && L.some(s=>/^\*?\s*Stake/i.test(s)) && L.some(s=>/^\*?\s*Potential win/i.test(s));
   if(!hasBuilderHeader) return null;
 
-  // Find header indices
-  const oddsIdx = L.findIndex(s=>/^\*\s*Odds/i.test(s));
-  const stakeIdx = L.findIndex(s=>/^\*\s*Stake/i.test(s));
-  const winIdx = L.findIndex(s=>/^\*\s*Potential win/i.test(s));
+  // Find header indices - supports both *Odds and Odds
+  const oddsIdx = L.findIndex(s=>/^\*?\s*Odds/i.test(s));
+  const stakeIdx = L.findIndex(s=>/^\*?\s*Stake/i.test(s));
+  const winIdx = L.findIndex(s=>/^\*?\s*Potential win/i.test(s));
   const headerEnd = Math.min(oddsIdx, stakeIdx, winIdx);
 
-  // Values are the lines AFTER all headers that start with * and a number
-  const valueLines = L.slice(headerEnd + 1).filter(s=>/^\*\s*[\d.,]/.test(s));
+  // Values are the lines AFTER all headers that start with optional * and a number
+  const valueLines = L.slice(headerEnd + 1).filter(s=>/^\*?\s*[\d.,]/.test(s));
   let odds=1, stake=1, win=null;
-  if(valueLines.length >= 1) odds = num(valueLines[0].match(/^\*\s*([\d.,]+)/)?.[1] || 1);
-  if(valueLines.length >= 2) stake = num(valueLines[1].match(/^\*\s*([\d.,]+)/)?.[1] || 1);
-  if(valueLines.length >= 3) win = num(valueLines[2].match(/^\*\s*([\d.,]+)/)?.[1] || null);
+  if(valueLines.length >= 1) odds = num(valueLines[0].match(/^\*?\s*([\d.,]+)/)?.[1] || 1);
+  if(valueLines.length >= 2) stake = num(valueLines[1].match(/^\*?\s*([\d.,]+)/)?.[1] || 1);
+  if(valueLines.length >= 3) win = num(valueLines[2].match(/^\*?\s*([\d.,]+)/)?.[1] || null);
   if(!win) win = +(stake*odds).toFixed(2);
 
   // Parse match blocks - everything before the summary headers
@@ -36,16 +37,16 @@ function parseBetBuilder(t){
   // We need to reconstruct: conditions... then team line (contains " - "), repeat
   const matches=[], currentConds=[];
   // More comprehensive exclusion regex for condition lines (case-insensitive)
-const CONDITION_PATTERNS = [
-  'over', 'under', 'double chance', 'each team', 'total ', 'handicap', 'asian', 'draw', '1x2',
-  'corner', 'corners', 'card', 'cards', 'goal', 'goals', 'team corners', 'team corner',
-  'total corner', 'total corners', 'total card', 'total cards', 'total goal', 'total goals',
-  'asian total', 'asian handicap', '1st half', '2nd half', '1st', '2nd', 'half',
-  'both teams to score', 'btts', 'gg', 'ng', 'to qualify', 'to win', 'win either half',
-  'draw no bet', 'dnb', 'clean sheet', 'anytime scorer', 'first scorer', 'last scorer'
-].join('|');
+  const CONDITION_PATTERNS = [
+    'over', 'under', 'double chance', 'each team', 'total ', 'handicap', 'asian', 'draw', '1x2',
+    'corner', 'corners', 'card', 'cards', 'goal', 'goals', 'team corners', 'team corner',
+    'total corner', 'total corners', 'total card', 'total cards', 'total goal', 'total goals',
+    'asian total', 'asian handicap', '1st half', '2nd half', '1st', '2nd', 'half',
+    'both teams to score', 'btts', 'gg', 'ng', 'to qualify', 'to win', 'win either half',
+    'draw no bet', 'dnb', 'clean sheet', 'anytime scorer', 'first scorer', 'last scorer'
+  ].join('|');
 
-for(const line of contentLines){
+  for(const line of contentLines){
     const isCondition = line.includes(' - ') && new RegExp(CONDITION_PATTERNS, 'i').test(line);
     if(line.includes(' - ') && !/^\*/.test(line) && !isCondition){
       // This looks like a team line (home - away)
@@ -111,7 +112,6 @@ function parseBlock(t){
  if(ex&&ex!=legs.length)W.push('در متن '+ex+' بازی نوشته شده ولی '+legs.length+' بازی تشخیص داده شد.');
  if(n[0]&&Math.abs(pd-n[0])/n[0]>.04)W.push('ضریب کل ('+n[0]+') با حاصل‌ضرب ضرایب بازی‌ها ('+pd.toFixed(2)+') نمی‌خواند؛ شاید بازی‌ای جا افتاده باشد.');
  return{name:mn||'multi '+legs.length,stake,odds,win:n[2]||+(stake*odds).toFixed(2),cash:isNaN(cv)?null:cv,legs,_w:W.join('\n')}}
-
 const CT=[['1','برد میزبان'],['2','برد میهمان'],['X','مساوی'],['1X','میزبان یا مساوی'],['X2','مساوی یا میهمان'],['12','بدون مساوی'],['O','مجموع گل بالای … (مقدار: 2.5)'],['U','مجموع گل زیر … (مقدار: 3.5)'],['HO','گل میزبان بالای …'],['HU','گل میزبان زیر …'],['AO','گل میهمان بالای …'],['AU','گل میهمان زیر …'],['Q1','صعود میزبان (کل بازی، با وقت اضافه و پنالتی)'],['Q2','صعود میهمان (کل بازی)'],['BY','هر دو تیم گل می‌زنند'],['BN','حداقل یک تیم گل نمی‌زند'],['T','تعداد دقیق کل گل … (مقدار: 3)'],['S','نتیجهٔ دقیق … (مقدار: 2-1)'],['AH1','هندیکپ میزبان … (مقدار: -1.5)'],['AH2','هندیکپ میهمان … (مقدار: +0.5)']];
 const needV=c=>!['1','2','X','1X','X2','12','BY','BN','Q1','Q2'].includes(c);
 
