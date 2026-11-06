@@ -62,6 +62,9 @@ textarea{direction:ltr;font-family:ui-monospace,Menlo,monospace;font-size:12px}
  <span class="v">✓ چند منبع هم‌نظرند</span><span class="w">⚠ منابع اختلاف دارند</span>
 </div>
 <main id="app"></main>
+<footer style="padding:12px;text-align:center;color:var(--mut);font-size:11px;border-top:1px solid var(--line);margin-top:8px">
+  Betslip <span id="ver">Update 19 — 2.4.1</span>
+</footer>
 
 <dialog id="lg"><form id="lf"><b>ورود</b><input id="pw" type="password" placeholder="رمز" autocomplete="current-password" required><button class="pri">ورود</button></form></dialog>
 <dialog id="ad"><form onsubmit="return false">
@@ -214,7 +217,7 @@ function parseBetBuilder(t){
   const oddsIdx = L.findIndex(s=>/^\*\s*Odds/i.test(s));
   const stakeIdx = L.findIndex(s=>/^\*\s*Stake/i.test(s));
   const winIdx = L.findIndex(s=>/^\*\s*Potential win/i.test(s));
-  const headerEnd = Math.max(oddsIdx, stakeIdx, winIdx);
+  const headerEnd = Math.min(oddsIdx, stakeIdx, winIdx);
 
   // Values are the lines AFTER all headers that start with * and a number
   const valueLines = L.slice(headerEnd + 1).filter(s=>/^\*\s*[\d.,]/.test(s));

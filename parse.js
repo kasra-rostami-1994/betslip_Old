@@ -19,7 +19,7 @@ function parseBetBuilder(t){
   const oddsIdx = L.findIndex(s=>/^\*\s*Odds/i.test(s));
   const stakeIdx = L.findIndex(s=>/^\*\s*Stake/i.test(s));
   const winIdx = L.findIndex(s=>/^\*\s*Potential win/i.test(s));
-  const headerEnd = Math.max(oddsIdx, stakeIdx, winIdx);
+  const headerEnd = Math.min(oddsIdx, stakeIdx, winIdx);
 
   // Values are the lines AFTER all headers that start with * and a number
   const valueLines = L.slice(headerEnd + 1).filter(s=>/^\*\s*[\d.,]/.test(s));
