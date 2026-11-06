@@ -488,6 +488,11 @@ async function setNotificationSkip(userId, skipUntil) {
   );
 }
 
+async function clearNotificationSkip(userId) {
+  await connect();
+  await NotificationSkip.deleteOne({ userId });
+}
+
 const notificationSkipSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, unique: true, index: true },
   skipUntil: { type: Number, required: true },
@@ -529,6 +534,6 @@ module.exports = {
   createDailyBackup, getBackups, getBackup,
   markMigrated, isMigrated,
   acquireLock, releaseLock,
-  getNotificationSkip, setNotificationSkip,
+  getNotificationSkip, setNotificationSkip, clearNotificationSkip,
   setLastNotifyResult, getLastNotifyResult,
 };

@@ -3,6 +3,19 @@
 const { DB, token, user } = require('./_lib');
 const tok = (x) => /^[0-9a-f]{24}$/.test(x || '');
 
+// Transform MongoDB bet document to client-expected format
+function transformBetForClient(bet) {
+  return {
+    ...bet,
+    id: bet._id?.toString() || bet.id,
+    created: bet.createdAt?.getTime ? bet.createdAt.getTime() : bet.createdAt,
+    del: bet.deletedAt ? bet.deletedAt.getTime ? bet.deletedAt.getTime() : bet.deletedAt : 0,
+    arch: bet.archivedAt ? bet.archivedAt.getTime ? bet.archivedAt.getTime() : bet.archivedAt : 0,
+    // Ensure legs array exists
+    legs: bet.legs || [],
+  };
+}
+
 module.exports = async (q, s) => {
   const userId = await user(q);
   if (!userId) return s.status(401).json({ error: 'unauthorized' });
@@ -12,11 +25,11 @@ module.exports = async (q, s) => {
       // Backup restore
       if (q.query && q.query.backup) {
         const backup = await DB.getBackup(userId, String(q.query.backup).slice(0, 10));
-        return s.json({ records: backup?.data || [] });
+        return s.json({ records: (backup?.data || []).map(transformBetForClient) });
       }
       // Normal bet list
       const bets = await DB.getUserBets(userId, { includeArchived: true, includeDeleted: true });
-      return s.json({ records: bets });
+      return s.json({ records: bets.map(transformBetForClient) });
     }
 
     if (q.method === 'PUT') {
@@ -26,11 +39,33 @@ module.exports = async (q, s) => {
 
       let touched = false;
 
-      // Handle updates
+      // Handle updates AND creates
       for (const r of up) {
         if (!r || typeof r.id !== 'string' || r.id.length > 40 || !Array.isArray(r.legs)) continue;
         const existing = await DB.getBetById(r.id);
-        if (!existing || existing.userId.toString() !== userId) continue;
+
+        if (!existing) {
+          // Create new bet - use client's id as MongoDB _id
+          const betData = { ...r };
+          const clientId = betData.id;
+          // Remove client-only fields that shouldn't go to DB
+          delete betData.id;
+          delete betData.upd;
+          delete betData.created;
+          delete betData.del;
+          delete betData.arch;
+
+          // Ensure userId is set
+          betData.userId = userId;
+          // Use client's id as MongoDB _id (string)
+          betData._id = clientId;
+
+          await DB.createBet(userId, betData);
+          touched = true;
+          continue;
+        }
+
+        if (existing.userId.toString() !== userId) continue;
 
         // Optimistic concurrency: skip if client version is older
         if (existing.updatedAt && r.upd && new Date(existing.updatedAt).getTime() > new Date(r.upd).getTime()) {
@@ -52,6 +87,14 @@ module.exports = async (q, s) => {
         if (visChanged || archChanged || delChanged) touched = true;
 
         const updateData = { ...r, updatedAt: new Date() };
+        // Remove client-only fields (also _id which cannot be updated)
+        delete updateData.id;
+        delete updateData._id;
+        delete updateData.upd;
+        delete updateData.created;
+        delete updateData.del;
+        delete updateData.arch;
+
         await DB.updateBet(r.id, userId, updateData);
       }
 

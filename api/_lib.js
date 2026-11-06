@@ -85,6 +85,7 @@ module.exports = {
   releaseLock: DB.releaseLock,
   getNotificationSkip: DB.getNotificationSkip,
   setNotificationSkip: DB.setNotificationSkip,
+  clearNotificationSkip: DB.clearNotificationSkip,
   setLastNotifyResult: DB.setLastNotifyResult,
   getLastNotifyResult: DB.getLastNotifyResult,
 };

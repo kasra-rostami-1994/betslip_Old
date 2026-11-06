@@ -1,5 +1,5 @@
 // User profile, public profiles, and leaderboard — MongoDB version
-const { DB, token, user } = require('./_lib');
+const { DB, token, user, getUserProfile } = require('./_lib');
 
 const publicBet = (b) => ({
   id: b._id?.toString() || b.id,
@@ -54,7 +54,7 @@ module.exports = async (q, s) => {
     if (!me) return s.status(401).json({ error: 'unauthorized' });
 
     if (q.method === 'GET') {
-      const profile = await DB.getUserProfile(me);
+      const profile = await getUserProfile(me);
       if (Q.fresh) await DB.updateUserStats(me);
       return s.json({ profile });
     }
