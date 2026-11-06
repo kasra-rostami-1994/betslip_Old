@@ -8,35 +8,29 @@ function toPick(sel,h){const s=sel.trim(),m=s.match(/^(over|under)\s+([\d.]+)$/i
 
 // ---- Bet Builder parser ----
 // Detects format with multiple conditions per match, team line, then * Odds/* Stake/* Potential win at end
+// Values come AFTER all headers, not immediately after each header
 function parseBetBuilder(t){
   const L=t.split('\n').map(s=>s.trim()).filter(s=>s);
   // Check for Bet Builder signature
   const hasBuilderHeader = L.some(s=>/^\*\s*Odds/i.test(s)) && L.some(s=>/^\*\s*Stake/i.test(s)) && L.some(s=>/^\*\s*Potential win/i.test(s));
   if(!hasBuilderHeader) return null;
 
-  // Extract summary values at the end
+  // Find header indices
   const oddsIdx = L.findIndex(s=>/^\*\s*Odds/i.test(s));
   const stakeIdx = L.findIndex(s=>/^\*\s*Stake/i.test(s));
   const winIdx = L.findIndex(s=>/^\*\s*Potential win/i.test(s));
+  const headerEnd = Math.max(oddsIdx, stakeIdx, winIdx);
 
-  // Values are on the lines after the headers (lines starting with * and a number)
+  // Values are the lines AFTER all headers that start with * and a number
+  const valueLines = L.slice(headerEnd + 1).filter(s=>/^\*\s*[\d.,]/.test(s));
   let odds=1, stake=1, win=null;
-  for(const idx of [oddsIdx, stakeIdx, winIdx]){
-    if(idx>=0 && idx+1 < L.length){
-      const valLine = L[idx+1];
-      const m = valLine.match(/^\*\s*([\d.,]+)/);
-      if(m){
-        const v = num(m[1]);
-        if(idx===oddsIdx) odds=v;
-        else if(idx===stakeIdx) stake=v;
-        else if(idx===winIdx) win=v;
-      }
-    }
-  }
+  if(valueLines.length >= 1) odds = num(valueLines[0].match(/^\*\s*([\d.,]+)/)?.[1] || 1);
+  if(valueLines.length >= 2) stake = num(valueLines[1].match(/^\*\s*([\d.,]+)/)?.[1] || 1);
+  if(valueLines.length >= 3) win = num(valueLines[2].match(/^\*\s*([\d.,]+)/)?.[1] || null);
   if(!win) win = +(stake*odds).toFixed(2);
 
   // Parse match blocks - everything before the summary headers
-  const contentLines = L.slice(0, Math.min(oddsIdx, stakeIdx, winIdx).filter(x=>x>=0)[0] || L.length);
+  const contentLines = L.slice(0, headerEnd);
 
   // Group lines by match (separated by empty lines in original, but we filtered them)
   // We need to reconstruct: conditions... then team line (contains " - "), repeat
