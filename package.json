@@ -1,1 +1,1 @@
-{"name":"betslip","private":true,"version":"2.1.2","engines":{"node":">=20"},"dependencies":{"mongoose":"^8.5.0"}}
+{"name":"betslip","private":true,"version":"2.1.2","engines":{"node":">=20"},"dependencies":{"dotenv":"^18.0.9","mongoose":"^8.24.8","node-fetch":"^3.3.2"}}
