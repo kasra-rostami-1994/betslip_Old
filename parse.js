@@ -35,8 +35,19 @@ function parseBetBuilder(t){
   // Group lines by match (separated by empty lines in original, but we filtered them)
   // We need to reconstruct: conditions... then team line (contains " - "), repeat
   const matches=[], currentConds=[];
-  for(const line of contentLines){
-    if(line.includes(' - ') && !/^\*/.test(line) && !/over|under|double chance|each team|total |handicap|asian|draw|1x2/i.test(line)){
+  // More comprehensive exclusion regex for condition lines (case-insensitive)
+const CONDITION_PATTERNS = [
+  'over', 'under', 'double chance', 'each team', 'total ', 'handicap', 'asian', 'draw', '1x2',
+  'corner', 'corners', 'card', 'cards', 'goal', 'goals', 'team corners', 'team corner',
+  'total corner', 'total corners', 'total card', 'total cards', 'total goal', 'total goals',
+  'asian total', 'asian handicap', '1st half', '2nd half', '1st', '2nd', 'half',
+  'both teams to score', 'btts', 'gg', 'ng', 'to qualify', 'to win', 'win either half',
+  'draw no bet', 'dnb', 'clean sheet', 'anytime scorer', 'first scorer', 'last scorer'
+].join('|');
+
+for(const line of contentLines){
+    const isCondition = line.includes(' - ') && new RegExp(CONDITION_PATTERNS, 'i').test(line);
+    if(line.includes(' - ') && !/^\*/.test(line) && !isCondition){
       // This looks like a team line (home - away)
       if(currentConds.length>0){
         matches.push({conds:[...currentConds], teamLine:line});
