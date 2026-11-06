@@ -58,7 +58,13 @@ function edSave() {
   let Rs;
   if (ED.m == 'f') { if (!ED.DL.length) return H('حداقل یک بازی به بلیت اضافه کنید.'); Rs = [mkBet(ED.DL)]; }
   else if (ED.m == 'm') { Rs = [parseManual($('#tx').value, { name: $('#nm').value.trim(), stake: $('#sk').value, odds: $('#od').value })]; if (Rs[0]) Rs[0].cash = $('#ch').value ? num($('#ch').value) : null; }
-  else Rs = $('#tx').value.split(/^\s*Active\s*$/mi).map(parseBlock);
+  else {
+    const txt = $('#tx').value.trim();
+    // Try Bet Builder parser first (doesn't use Active separators)
+    const bb = parseBetBuilder(txt);
+    if (bb) Rs = [bb];
+    else Rs = txt.split(/^\s*Active\s*$/mi).map(parseBlock);
+  }
   const ok = Rs.filter(Boolean); if (!ok.length) return H('هیچ بازی‌ای تشخیص داده نشد؛ قالب را بررسی کنید.');
   const wn = ok.map((b) => b._w).filter(Boolean); if (wn.length && !confirm('⚠ ' + wn.join('\n') + '\n\nبا همین حالت ثبت شود؟')) return;
   const nm = $('#nm').value.trim(), now = Date.now();

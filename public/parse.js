@@ -5,6 +5,94 @@ function toPick(sel,h){const s=sel.trim(),m=s.match(/^(over|under)\s+([\d.]+)$/i
  if(m)return m[1][0].toUpperCase()+m[2];if(/^draw$/i.test(s))return'X';
  const p=s.split(/ or /i);if(p.length==2)return/^draw$/i.test(p[0].trim())?'X2':'1X';
  return fold(s).trim()==fold(h).trim()?'1':'2'}
+
+// ---- Bet Builder parser ----
+// Detects format with multiple conditions per match, team line, then * Odds/* Stake/* Potential win at end
+function parseBetBuilder(t){
+  const L=t.split('\n').map(s=>s.trim()).filter(s=>s);
+  // Check for Bet Builder signature
+  const hasBuilderHeader = L.some(s=>/^\*\s*Odds/i.test(s)) && L.some(s=>/^\*\s*Stake/i.test(s)) && L.some(s=>/^\*\s*Potential win/i.test(s));
+  if(!hasBuilderHeader) return null;
+
+  // Extract summary values at the end
+  const oddsIdx = L.findIndex(s=>/^\*\s*Odds/i.test(s));
+  const stakeIdx = L.findIndex(s=>/^\*\s*Stake/i.test(s));
+  const winIdx = L.findIndex(s=>/^\*\s*Potential win/i.test(s));
+
+  // Values are on the lines after the headers (lines starting with * and a number)
+  let odds=1, stake=1, win=null;
+  for(const idx of [oddsIdx, stakeIdx, winIdx]){
+    if(idx>=0 && idx+1 < L.length){
+      const valLine = L[idx+1];
+      const m = valLine.match(/^\*\s*([\d.,]+)/);
+      if(m){
+        const v = num(m[1]);
+        if(idx===oddsIdx) odds=v;
+        else if(idx===stakeIdx) stake=v;
+        else if(idx===winIdx) win=v;
+      }
+    }
+  }
+  if(!win) win = +(stake*odds).toFixed(2);
+
+  // Parse match blocks - everything before the summary headers
+  const contentLines = L.slice(0, Math.min(...[oddsIdx, stakeIdx, winIdx].filter(x=>x>=0)));
+
+  // Group lines by match (separated by empty lines in original, but we filtered them)
+  // We need to reconstruct: conditions... then team line (contains " - "), repeat
+  const matches=[], currentConds=[];
+  for(const line of contentLines){
+    if(line.includes(' - ') && !/^\*/.test(line) && !/over|under|double chance|each team|total |handicap|asian|draw|1x2/i.test(line)){
+      // This looks like a team line (home - away)
+      if(currentConds.length>0){
+        matches.push({conds:[...currentConds], teamLine:line});
+        currentConds.length=0;
+      }else{
+        // Team line without conditions - might be simple format
+        matches.push({conds:[], teamLine:line});
+      }
+    }else if(!/^\*/.test(line)){
+      // Condition line
+      currentConds.push(line);
+    }
+  }
+  // Handle last match if no trailing team line
+  if(currentConds.length>0){
+    matches.push({conds:[...currentConds], teamLine:null});
+  }
+
+  if(!matches.length) return null;
+
+  // Build legs - each match becomes one leg with combined conditions
+  const legs = matches.map(m=>{
+    const k = m.teamLine ? m.teamLine.indexOf(' - ') : -1;
+    const home = k>0 ? m.teamLine.slice(0,k).trim() : 'Unknown';
+    const away = k>0 ? m.teamLine.slice(k+3).trim() : 'Unknown';
+    // Combine conditions into pick string
+    const pick = m.conds.length ? m.conds.join(' | ') : 'Bet Builder';
+    return {home, away, pick, odds: 1.0}; // odds=1 placeholder, will be adjusted
+  });
+
+  // Distribute total odds across legs (geometric mean)
+  if(legs.length>0 && odds>1){
+    const legOdds = +Math.pow(odds, 1/legs.length).toFixed(2);
+    legs.forEach(l=>l.odds=legOdds);
+  }
+
+  const W = [];
+  if(legs.length>0 && odds>1){
+    const pd = +legs.reduce((p,l)=>p*l.odds,1).toFixed(2);
+    if(Math.abs(pd-odds)/odds > 0.04){
+      W.push(`توزیع تقریبی ضریب: هر بازی ${legs[0].odds} (ضریب کل ${pd} vs اصلی ${odds})`);
+    }
+  }
+
+  return {
+    name: 'Bet Builder ' + legs.length,
+    stake, odds, win, cash: null, legs, _w: W.join('\n')
+  };
+}
+
 function parseBlock(t){
  const L=t.split('\n').map(s=>s.trim().replace(/^[*•]\s*/,'')).filter(s=>s&&!/^\(\s*\d+\s*[:\-]\s*\d+\s*\)$/.test(s)),legs=[];
  L.forEach((s,i)=>{if(i>=3&&/^(1x2|double chance|asian total)$/i.test(L[i-1].replace(/\s*\(\s*\d+\s*[:\-]\s*\d+\s*\)$/,''))&&/^\d+(\.\d+)?(\(\d+:\d+\))?$/.test(L[i-2])&&s.includes(' - ')){

@@ -244,7 +244,13 @@ $('#flist').addEventListener('click',e=>{const r=e.target.dataset.r;if(r==null)r
 $('#md').onchange=setMode;$('#add').onclick=()=>{setMode();$('#fc').onchange();$('#ad').showModal()};$('#cl').onclick=()=>$('#ad').close();
 $('#ok').onclick=()=>{const m=$('#md').value;let R;
  if(m=='f'){if(!DL.length){$('#hint').textContent='حداقل یک بازی به بلیت اضافه کنید.';return}R=[mkBet(DL)]}
- else R=m=='m'?[parseManual($('#tx').value)]:$('#tx').value.split(/^\s*Active\s*$/mi).map(parseBlock);
+ else {
+    const txt = $('#tx').value.trim();
+    // Try Bet Builder parser first (doesn't use Active separators)
+    const bb = parseBetBuilder(txt);
+    if (bb) R = [bb];
+    else R = txt.split(/^\s*Active\s*$/mi).map(parseBlock);
+  }
  const ok=R.filter(Boolean);if(!ok.length){$('#hint').textContent='هیچ بازی‌ای تشخیص داده نشد؛ قالب را بررسی کنید.';return}
  ok.forEach((b,i)=>D.bets.push({...b,id:Date.now().toString(36)+i+Math.random().toString(36).slice(2,5),created:Date.now()+i}));
  $('#tx').value='';DL=[];CUR=[];flist();$('#ad').close();save();live()};
