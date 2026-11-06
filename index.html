@@ -3,365 +3,437 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Betslip</title>
+<meta name="theme-color" content="#090A0B" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#F8FAFC" media="(prefers-color-scheme: light)">
+<title>Betslip — Premium Bet Tracking</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link rel="stylesheet" href="app.css">
 <style>
-:root{--bg:#0f1318;--panel:#171d25;--line:#252e3a;--tx:#e8edf3;--mut:#8b97a6;--gray:#9aa4b1;--b:#4da3ff;--g:#3ecf8e;--r:#ff5c6a;--o:#ffa94d;color-scheme:dark}
-*{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--tx);font-family:Vazirmatn,Tahoma,"Segoe UI",sans-serif;line-height:1.6}
-header{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--line);padding:10px 16px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
-h1{font-size:18px;margin:0}.sub{color:var(--mut);font-size:12px}
-.bar2{display:flex;gap:8px;flex-wrap:wrap}
-button,input,select,textarea{font:inherit;color:var(--tx);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 12px}
-button{cursor:pointer}button.on{border-color:var(--b);color:var(--b)}button.pri{background:var(--b);color:#06121f;border-color:var(--b);font-weight:600}
-button.x{padding:2px 10px;font-size:12px}button:focus-visible,.sc:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--b);outline-offset:2px}
-#err{display:none;margin:10px 16px 0;padding:8px 14px;border:1px solid var(--o);color:var(--o);border-radius:8px;font-size:13px}
-.legend{display:flex;flex-wrap:wrap;gap:14px;padding:8px 16px;font-size:12px;color:var(--mut)}
-.legend i,.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-inline-end:5px;background:var(--gray)}
-main{display:grid;grid-template-columns:repeat(auto-fill,minmax(420px,1fr));gap:16px;padding:8px 16px 40px}
-@media(max-width:480px){main{grid-template-columns:1fr;padding:8px}}
-.bet,.stats{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
-.bet.lost{border-color:#5a2a31}.bet.won{border-color:#1f5a41}
-.stats{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:8px 28px;padding:12px 16px}.stats b{display:block;font-size:18px}
-.emp{grid-column:1/-1;text-align:center;padding:40px}
-.bh{padding:12px 14px;border-bottom:1px solid var(--line)}
-.bh .t{display:flex;justify-content:space-between;align-items:center;gap:8px;font-weight:700}
-.chip{font-size:12px;font-weight:600;border-radius:99px;padding:2px 10px;border:1px solid currentColor}
-.meta{display:flex;flex-wrap:wrap;gap:4px 16px;color:var(--mut);font-size:12px;margin-top:4px}.meta b{color:var(--tx);font-weight:600}
-.bar{display:flex;height:6px;border-radius:3px;overflow:hidden;background:var(--line);margin-top:10px;gap:1px}.bar span{display:block}
-.acts{display:flex;gap:6px;margin-top:10px}
-.leg{display:grid;grid-template-columns:14px 1fr auto;gap:10px;align-items:center;padding:9px 14px;border-bottom:1px solid var(--line);border-inline-start:3px solid var(--c,transparent)}
-.leg:last-child{border-bottom:0}.leg .dot{width:12px;height:12px;margin:0;background:var(--c)}
-.nm{font-size:13.5px;direction:ltr;text-align:right;unicode-bidi:plaintext}.pk{font-size:12px;color:var(--gray)}
-.sc{text-align:center;min-width:84px;cursor:pointer;border-radius:6px;padding:2px 6px}
-.sc b{font-size:16px;display:block;direction:ltr}.sc small{font-size:11px;color:var(--mut);display:block}
-.v{color:var(--g)}.w{color:var(--o)}
-.c-b{--c:var(--b)}.c-g{--c:var(--g)}.c-r{--c:var(--r)}.c-o{--c:var(--o)}.c-n{--c:var(--gray)}
-.leg.live .dot{animation:p 1.4s infinite}@keyframes p{50%{opacity:.35}}
-@media(prefers-reduced-motion:reduce){.leg.live .dot{animation:none}}
-dialog{background:var(--bg);color:var(--tx);border:1px solid var(--line);border-radius:12px;width:min(560px,94vw)}
-dialog::backdrop{background:#000a}dialog form>*{display:block;width:100%;margin-bottom:10px}
-textarea{direction:ltr;font-family:ui-monospace,Menlo,monospace;font-size:12px}
-[hidden]{display:none!important}
-.row{display:flex;gap:6px;margin-bottom:8px}.row>*{flex:1;min-width:0}.row>button{flex:none}
-.pub .bar2{display:none}.acts{flex-wrap:wrap}
-.sc{max-width:170px}.sc small{white-space:normal}
+  /* Inline critical styles for fast initial render */
+  :root {
+    --font-family-arabic: 'Yekan', 'Inter', system-ui, sans-serif;
+  }
+  @font-face {
+    font-family: 'Yekan';
+    src: url('fonts/Yekan.woff2') format('woff2');
+    font-display: swap;
+  }
 </style>
 </head>
 <body>
-<header>
- <div><h1>Betslip</h1><div class="sub" id="upd">در حال دریافت…</div></div>
- <div class="bar2">
-  <button id="t1" class="on">فعال</button><button id="t2">تاریخچه</button>
-  <button id="add" class="pri">افزودن بلیت</button><button id="exp">خروجی JSON</button><button id="rf">به‌روزرسانی</button>
- </div>
-</header>
-<div id="err"></div>
-<div class="legend">
- <span><i style="background:var(--b)"></i>زنده و مطابق پیش‌بینی</span><span><i style="background:var(--g)"></i>تمام‌شده و درست</span>
- <span><i style="background:var(--r)"></i>اشتباه</span><span><i style="background:var(--o)"></i>زنده و نزدیک</span><span><i></i>شروع نشده</span>
- <span class="v">✓ چند منبع هم‌نظرند</span><span class="w">⚠ منابع اختلاف دارند</span>
-</div>
-<main id="app"></main>
-<footer style="padding:12px;text-align:center;color:var(--mut);font-size:11px;border-top:1px solid var(--line);margin-top:8px">
-  Betslip <span id="ver">Update 19 — 2.4.1</span>
-</footer>
+  <!-- Header -->
+  <header class="navbar" role="banner">
+    <div class="navbar-brand" aria-label="Betslip Home">
+      <span class="navbar-brand-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12.79A9 9 0 1 1 12.21 3 7 7 0 0 0 3 12.25" />
+          <path d="M22 12c0 5.523-4.477 10-10 10S2 17.523 2 12" />
+        </svg>
+      </span>
+      <span>Betslip</span>
+    </div>
 
-<dialog id="lg"><form id="lf"><b>ورود</b><input id="pw" type="password" placeholder="رمز" autocomplete="current-password" required><button class="pri">ورود</button></form></dialog>
-<dialog id="ad"><form onsubmit="return false">
- <b>افزودن بلیت</b>
- <select id="md"><option value="p">چسباندن متن بلیت (از سایت شرط‌بندی)</option><option value="f">فرم دستی، بازی به بازی</option><option value="m">متنی دستی (هر خط یک بازی)</option><option value="b">Bet Builder</option></select>
- <div id="mf" hidden><input id="nm" placeholder="نام بلیت" style="margin-bottom:8px"><input id="sk" placeholder="مبلغ (USDT)" style="margin-bottom:8px"><input id="od" placeholder="ضریب کل (خالی = حاصل‌ضرب ضرایب)"></div>
- <div id="ff" hidden>
-  <div class="row"><input id="fh" placeholder="تیم میزبان"><input id="fa" placeholder="تیم میهمان"><input id="fo" placeholder="ضریب"></div>
-  <div class="row"><select id="fc"></select><input id="fv" placeholder="مقدار"><button type="button" id="fadd">+ شرط</button></div>
-  <div class="sub" id="fcur"></div>
-  <button type="button" id="fleg">افزودن این بازی به بلیت</button>
-  <div class="sub" id="flist"></div>
- </div>
- <textarea id="tx" rows="12"></textarea>
- <div id="bb" hidden><textarea id="txb" rows="12" placeholder="متن Bet Builder را اینجا بچسبانید"></textarea><div class="sub mut">فرمت: شرایط هر بازی (چند خط)، سپس خط تیم‌ها (Home - Away)، و در نهایت * Odds / * Stake USDT / * Potential win USDT با مقادیر</div></div>
- <div class="sub" id="hint"></div>
- <div style="display:flex;gap:8px"><button type="button" class="pri" id="ok" style="width:auto">ثبت بلیت</button><button type="button" id="cl" style="width:auto">بستن</button></div>
-</form></dialog>
+    <nav class="navbar-nav" role="navigation" aria-label="Main navigation">
+      <a href="#" class="nav-item active" data-tab="active" aria-current="page">
+        <svg class="nav-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+          <polyline points="9 22 9 12 15 12 15 22" />
+        </svg>
+        <span>فعال</span>
+      </a>
+      <a href="#" class="nav-item" data-tab="history">
+        <svg class="nav-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10" />
+          <polyline points="12 6 12 12 16 14" />
+        </svg>
+        <span>تاریخچه</span>
+      </a>
+    </nav>
 
-<script>
-const BASE=location.pathname.startsWith('/betslip')?'/betslip':'';
-const ls={g:k=>{try{return localStorage.getItem(k)}catch(e){return null}},s:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}}};
-const $=s=>document.querySelector(s);
-const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const PUB=new URLSearchParams(location.search).get('s');
-const SN={espn:'ESPN',sofa:'Sofascore',fd:'football-data',apif:'API-Football',tsdb:'TheSportsDB'};
-let OPEN;try{OPEN=new Set(JSON.parse(ls.g('open')||'[]'))}catch(e){OPEN=new Set()}
-let KEY=ls.g('pw')||'',D={bets:[]},LV=[],SRC=[],tab='act',tmr,dirty=0,at=null,started=0;
+    <div class="navbar-actions">
+      <button class="btn btn-ghost btn-icon" id="theme-toggle" aria-label="Toggle theme" title="تغییر تم">
+        <svg class="icon-sun" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;">
+          <circle cx="12" cy="12" r="5" />
+          <line x1="12" y1="1" x2="12" y2="3" />
+          <line x1="12" y1="21" x2="12" y2="23" />
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+          <line x1="1" y1="12" x2="3" y2="12" />
+          <line x1="21" y1="12" x2="23" y2="12" />
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+        </svg>
+        <svg class="icon-moon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12.79A9 9 0 1 1 12.21 3 7 7 0 0 0 3 12.25" />
+        </svg>
+      </button>
+      <button class="btn btn-primary" id="add-btn" aria-label="Add bet slip">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" y1="5" x2="12" y2="19" />
+          <line x1="5" y1="12" x2="19" y2="12" />
+        </svg>
+        <span>افزودن بلیت</span>
+      </button>
+    </div>
+  </header>
 
-// ---------- شبکه ----------
-async function api(p,o={}){const r=await fetch(BASE+p,{...o,headers:{'content-type':'application/json','x-key':KEY}});
- if(r.status==401){const e=new Error('رمز اشتباه است');e.u=1;throw e}if(!r.ok)throw new Error('HTTP '+r.status);return r.json()}
-const banner=m=>{const e=$('#err');e.style.display=m?'block':'none';e.textContent=m||''};
-const save=()=>{clearTimeout(tmr);tmr=setTimeout(()=>api('/api/data',{method:'PUT',body:JSON.stringify(D)}).then(()=>banner('')).catch(e=>banner('ذخیره نشد: '+e.message)),700)};
-async function init(){try{D=await api('/api/data');render();await live();if(!started){started=1;setInterval(live,60000)}}
- catch(e){if(e.u){$('#lg').showModal()}else banner('خطا در اتصال به سرور یا دیتابیس: '+e.message)}}
-let needMore=0;
-const unmatched=()=>D.bets.some(b=>!b.arch&&b.legs.some(l=>!l.fin&&!l.ov&&!LV.some(e=>same(l.home,e.home)&&same(l.away,e.away))));
-async function live(){
- if(D.bets.some(b=>!b.arch&&b.legs.some(l=>!l.fin&&!l.ov))){
-  try{const j=await(await fetch(BASE+'/api/live'+(needMore?'?apif=1':''))).json();LV=j.events;SRC=j.sources;at=new Date();
-   const nm=unmatched();if(nm&&!needMore){needMore=1;return live()}needMore=nm?1:0}
-  catch(e){banner('دریافت نتایج زنده ناموفق بود')}}
- render()}
+  <!-- Error Banner -->
+  <div id="err" class="toast toast-error" role="alert" aria-live="assertive" hidden>
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:2px;">
+      <circle cx="12" cy="12" r="10" />
+      <line x1="15" y1="9" x2="9" y2="15" />
+      <line x1="9" y1="9" x2="15" y2="15" />
+    </svg>
+    <div class="toast-content">
+      <div class="toast-title">خطا</div>
+      <div class="toast-message" id="err-msg"></div>
+    </div>
+    <button class="toast-close" aria-label="Dismiss">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="18" y1="6" x2="6" y2="18" />
+        <line x1="6" y1="6" x2="18" y2="18" />
+      </svg>
+    </button>
+  </div>
 
-// ---------- تطبیق نام تیم ----------
-const fold=s=>s.toLowerCase().replace(/æ/g,'ae').replace(/[øö]/g,'o').replace(/ß/g,'ss').replace(/ł/g,'l').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9 ]/g,' ');
-const STOP=new Set('fc afc cf sc ac as fk sk bk if real club the city united cd rc ad us kaa krc rsc'.split(' '));
-const AL=[['crvena zvezda','red star'],['inter milan','internazionale'],['athletic bilbao','athletic club'],['olympiacos','olympiakos'],['ofk belgrade','ofk beograd'],['heart of midlothian','hearts'],['prague','praha']];
-const TC={};const tk=s=>TC[s]||(TC[s]=(f=>(f+' '+AL.filter(a=>f.includes(a[0])).map(a=>a[1]).join(' ')).split(/\s+/).filter(w=>w.length>2&&!STOP.has(w)))(fold(s)));
-const same=(a,b)=>{const x=tk(a),y=tk(b);return x.some(w=>y.some(v=>v==w||(w.length>4&&v.length>4&&w.slice(0,5)==v.slice(0,5))))};
+  <!-- Main Content -->
+  <main id="app" class="container" role="main">
+    <!-- Content rendered by JavaScript -->
+  </main>
 
-// ---------- ترکیب منابع (رأی‌گیری) ----------
-function cons(l){
- if(l.ov)return{h:l.ov.h,a:l.ov.a,st:l.ov.f?'post':'in',min:l.ov.m||45,man:1,clk:l.ov.f?'پایان (دستی)':'زنده (دستی)'};
- if(l.fin)return{h:l.fin.h,a:l.fin.a,st:'post',t:l.fin.t&&new Date(l.fin.t),clk:'پایان',fin:1};
- const H=LV.filter(e=>same(l.home,e.home)&&same(l.away,e.away));if(!H.length)return null;
- const g={};H.forEach(e=>(g[e.h+'-'+e.a]=g[e.h+'-'+e.a]||[]).push(e));
- const G=Object.values(g).sort((a,b)=>b.length-a.length||a[0].p-b[0].p),r=G[0][0];
- return{h:r.h,a:r.a,st:r.st,clk:r.clk,min:r.min,t:r.t&&new Date(r.t),src:G.map(g=>[[...new Set(g.map(e=>SN[e.s]||e.s))].join('+'),g[0].h+'-'+g[0].a]),cf:G.length>1}}
+  <!-- Footer -->
+  <footer class="footer" style="padding: var(--space-6) var(--space-6); text-align: center; color: var(--color-text-muted); font-size: var(--font-size-xs); border-top: 1px solid var(--color-border-subtle); margin-top: var(--space-16);">
+    Betslip <span id="ver">Update 31 — 2.4.13</span>
+  </footer>
 
-// ---------- ارزیابی پیش‌بینی ----------
-// کد هر شرط: 1 2 X 1X X2 12 | O2.5 U2.5 HO1.5 AU0.5 | BY BN | T3 | S2-1 | AH1-1.5  ؛ ترکیب با & (مثل 1&O2.5)
-function chk(p,h,a){const g=h+a,d=h-a;let m;
- if(p=='1')return[d>0,1-d,0];if(p=='2')return[d<0,1+d,0];if(p=='X')return[d==0,Math.abs(d),0];
- if(p=='1X')return[d>=0,-d,0];if(p=='X2')return[d<=0,d,0];if(p=='12')return[d!=0,d?0:1,0];
- if(p=='BY')return[h>0&&a>0,(h==0)+(a==0),'up'];if(p=='BN')return[!(h>0&&a>0),0,'down'];
- if(m=p.match(/^([HA]?)([OU])([\d.]+)$/)){const v=m[1]=='H'?h:m[1]=='A'?a:g,L=+m[3];return m[2]=='O'?[v>L,Math.floor(L)+1-v,'up']:[v<L,0,'down']}
- if(m=p.match(/^T(\d+)$/)){const N=+m[1];return[g==N,Math.abs(N-g),g>N?'down':0]}
- if(m=p.match(/^S(\d+)-(\d+)$/)){const x=+m[1],y=+m[2];return[h==x&&a==y,Math.max(0,x-h)+Math.max(0,y-a),h>x||a>y?'down':0]}
- if(m=p.match(/^AH([12])([+-][\d.]+)$/)){const e=m[1]=='1'?h+ +m[2]-a:a+ +m[2]-h;return[e>0,Math.floor(-e)+1,0]}
- return[false,9,0]}
-function ev1(p,x){const fin=x.st=='post',[ok,need,mono]=chk(p,x.h,x.a);
- if(fin)return ok?['g',0]:['r',1];
- if(mono=='up'&&ok)return['g',0];if(mono=='down'&&!ok)return['r',1];
- if(ok)return['b',0];
- return need<=1||need*25<=90-(x.min||0)?['o',0]:['r',0]}
-function ev(p,x){
- if(!x||x.st=='pre')return['n',0];
- const R=p.split('&').map(q=>ev1(q,x)),C=R.map(r=>r[0]);
- if(R.some(r=>r[1]))return['r',1];
- if(C.every(c=>c=='g'))return['g',0];
- if(C.every(c=>c=='g'||c=='b'))return['b',0];
- return[C.includes('r')?'r':'o',0]}
-const pt1=(p,l)=>{let m;const H=l.home,A=l.away,F={1:'برد '+H,2:'برد '+A,X:'مساوی','1X':H+' یا مساوی',X2:'مساوی یا '+A,12:'بدون مساوی',BY:'هر دو تیم گل می‌زنند',BN:'حداقل یک تیم گل نمی‌زند'};
- if(F[p])return F[p];
- if(m=p.match(/^([HA]?)([OU])([\d.]+)$/))return(m[1]=='H'?'گل‌های '+H+' ':m[1]=='A'?'گل‌های '+A+' ':'مجموع گل ')+(m[2]=='O'?'بالای ':'زیر ')+m[3];
- if(m=p.match(/^T(\d+)$/))return'دقیقاً '+m[1]+' گل';
- if(m=p.match(/^S(\d+)-(\d+)$/))return'نتیجهٔ دقیق '+m[1]+'-'+m[2];
- if(m=p.match(/^AH([12])(.+)$/))return'هندیکپ '+(m[1]==1?H:A)+' ('+m[2]+')';return p};
-const pickTxt=(p,l)=>p.split('&').map(q=>pt1(q,l)).join(' + ');
-const fmtT=t=>t&&!isNaN(t)?t.toLocaleString('fa-IR',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}):'زمان نامشخص';
-const COL={g:'var(--g)',b:'var(--b)',o:'var(--o)',r:'var(--r)',n:'var(--line)'};
+  <!-- Login Dialog -->
+  <dialog id="lg" class="modal" role="dialog" aria-modal="true" aria-labelledby="lg-title">
+    <form id="lf" class="modal-content" onsubmit="return false">
+      <header class="modal-header">
+        <h2 id="lg-title" class="modal-title">ورود به Betslip</h2>
+        <button type="button" class="modal-close" aria-label="Close">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+      </header>
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="pw" class="form-label">رمز عبور</label>
+          <div class="input-with-icon">
+            <input type="password" id="pw" class="input" placeholder="رمز عبور" autocomplete="current-password" required>
+            <span class="input-icon-wrapper">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+              </svg>
+            </span>
+          </div>
+        </div>
+        <div id="le" class="toast toast-error" hidden style="margin-top: var(--space-3);"></div>
+      </div>
+      <footer class="modal-footer">
+        <button type="submit" class="btn btn-primary btn-lg" style="width:100%;">ورود</button>
+      </footer>
+    </form>
+  </dialog>
 
-// ---------- نمایش ----------
-function view(b,pub){
- const L=b.legs.map((l,i)=>{const x=cons(l),[c,dead]=ev(l.pick,x);
-  if(!pub&&x&&x.st=='post'&&!x.man&&!x.fin&&!l.fin&&!l.ov){l.fin={h:x.h,a:x.a,t:x.t&&x.t.toISOString?x.t.toISOString():null};dirty=1}
-  return{l,i,x,c,dead}});
- L.sort((p,q)=>(p.x?.st=='in'?0:1)-(q.x?.st=='in'?0:1)||(p.x?.t||8e15)-(q.x?.t||8e15));
- const cnt=k=>L.filter(z=>z.c==k).length,lost=L.some(z=>z.dead),won=L.every(z=>z.c=='g'),nl=L.filter(z=>z.x?.st=='in').length;
- b._st=lost?'lost':won?'won':'open';
- const chip=lost?['از دست رفته','var(--r)']:won?['برنده شد','var(--g)']:nl?[nl+' بازی زنده','var(--b)']:['در انتظار','var(--gray)'];
- const open=pub||OPEN.has(b.id),id=b.id;
- const row=z=>{const x=z.x,l=z.l;
-  const sc=x&&x.st!='pre'?`<b>${x.h} - ${x.a}</b><small>${x.st=='post'?'پایان':esc(x.clk||'زنده')}</small>`:`<b>–</b><small>${x?fmtT(x.t):(at?'در منابع پیدا نشد':'…')}</small>`;
-  const bd=x?.man?'<small>منبع: دستی</small>':x?.fin?'<small>منبع: ذخیره‌شده</small>':x?.src?(x.cf?'<small class="w">⚠ اختلاف: '+x.src.map(q=>esc(q[0])+' '+q[1]).join(' | ')+'</small>':`<small class="${x.src[0][0].includes('+')?'v':''}">${x.src[0][0].includes('+')?'✓ ':''}${esc(x.src[0][0])}</small>`):'';
-  return `<div class="leg c-${z.c} ${x?.st=='in'?'live':''}"><span class="dot"></span>
-  <div><div class="nm">${esc(l.home)} – ${esc(l.away)}</div><div class="pk">پیش‌بینی: ${esc(pickTxt(l.pick,l))} (${(+l.odds).toFixed(2)})</div></div>
-  <div class="sc"${pub?'':` tabindex="0" role="button" title="ورود دستی نتیجه" data-b="${id}" data-l="${z.i}"`}>${sc}${bd}</div></div>`};
- const meta=pub?`<span>ضریب <b>${(+b.odds).toLocaleString()}</b></span>`:`<span>ضریب <b>${(+b.odds).toLocaleString()}</b></span><span>مبلغ <b>${b.stake}</b></span><span>برد احتمالی <b>${(+b.win).toLocaleString()}</b> USDT</span>${b.cash!=null?`<span>کش‌اوت <b>${b.cash}</b></span>`:''}`;
- const acts=pub?'':`<div class="acts"><button class="x" data-a="tg" data-b="${id}" aria-expanded="${open}">${open?'بستن جزئیات ▴':'جزئیات بازی‌ها ▾'}</button>
-  <button class="x" data-a="sh" data-b="${id}">${b.share?'کپی لینک اشتراک':'اشتراک‌گذاری'}</button>${b.share?`<button class="x" data-a="us" data-b="${id}">لغو اشتراک</button>`:''}
-  ${b.arch?`<button class="x" data-a="un" data-b="${id}">بازگردانی</button>`:`<button class="x" data-a="ar" data-b="${id}">بایگانی</button>`}<button class="x" data-a="del" data-b="${id}">حذف</button></div>`;
- return `<section class="bet ${lost?'lost':won?'won':''}"><div class="bh">
- <div class="t"><span>${esc(b.name)}${b.share&&!pub?' 🔗':''}</span><span class="chip" style="color:${chip[1]}">${chip[0]}</span></div>
- <div class="meta">${meta}</div>
- <div class="meta"><span style="color:var(--g)">درست ${cnt('g')}</span><span style="color:var(--b)">مطابق ${cnt('b')}</span><span style="color:var(--o)">نزدیک ${cnt('o')}</span><span style="color:var(--r)">اشتباه ${cnt('r')}</span><span>از ${L.length}</span></div>
- <div class="bar">${['g','b','o','r','n'].map(k=>`<span style="flex:${cnt(k)};background:${COL[k]}"></span>`).join('')}</div>${acts}</div>
- ${open?L.map(row).join(''):''}</section>`}
+  <!-- Add/Edit Bet Dialog -->
+  <dialog id="ad" class="modal modal-lg" role="dialog" aria-modal="true" aria-labelledby="ad-title">
+    <form onsubmit="return false" class="modal-content">
+      <header class="modal-header">
+        <h2 id="ad-title" class="modal-title">افزودن بلیت</h2>
+        <button type="button" class="modal-close" aria-label="Close">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+      </header>
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="md" class="form-label">حالت ورودی</label>
+          <select id="md" class="select">
+            <option value="p">چسباندن متن بلیت (از سایت شرط‌بندی)</option>
+            <option value="f">فرم دستی، بازی به بازی</option>
+            <option value="m">متنی دستی (هر خط یک بازی)</option>
+            <option value="b">Bet Builder</option>
+          </select>
+        </div>
 
-function stats(){
- const H=D.bets.filter(b=>b.arch&&(b.res=='won'||b.res=='lost')),W=H.filter(b=>b.res=='won');
- const st=H.reduce((s,b)=>s+ +b.stake,0),rt=W.reduce((s,b)=>s+b.stake*b.odds,0);
- return `<div class="stats"><div class="sub">بلیت‌های تمام‌شده<b>${H.length}</b></div><div class="sub">برنده<b style="color:var(--g)">${W.length}</b></div><div class="sub">بازنده<b style="color:var(--r)">${H.length-W.length}</b></div>
- <div class="sub">درصد برد<b>${H.length?Math.round(W.length/H.length*100):0}%</b></div><div class="sub">مجموع شرط<b>${st.toFixed(2)}</b></div><div class="sub">بازگشت<b>${rt.toFixed(2)}</b></div>
- <div class="sub">سود/زیان<b style="color:${rt-st>=0?'var(--g)':'var(--r)'}">${(rt-st).toFixed(2)}</b></div></div>`}
+        <!-- Form Mode Fields -->
+        <div id="mf" class="form-section" hidden>
+          <div class="form-group">
+            <label for="nm" class="form-label">نام بلیت (اختیاری)</label>
+            <input type="text" id="nm" class="input" placeholder="نام بلیت">
+          </div>
+          <div class="row gap-4">
+            <div class="form-group" style="flex:1;">
+              <label for="sk" class="form-label">مبلغ (USDT)</label>
+              <input type="number" id="sk" class="input" placeholder="مبلغ (USDT)" step="0.01" min="0">
+            </div>
+            <div class="form-group" style="flex:1;">
+              <label for="od" class="form-label">ضریب کل</label>
+              <input type="number" id="od" class="input" placeholder="ضریب کل (خالی = حاصل‌ضرب ضرایب)" step="0.01" min="1">
+            </div>
+          </div>
+        </div>
 
-function render(){
- $('#upd').textContent=(at?'آخرین به‌روزرسانی '+at.toLocaleTimeString('fa-IR')+' — ':'')+SRC.map(s=>(SN[s.n]||s.n)+(s.ok?' ✓'+s.c:' ✗')).join('  ');
- if(PUB){$('#app').innerHTML=view(D.bets[0],1);return}
- $('#t1').classList.toggle('on',tab=='act');$('#t2').classList.toggle('on',tab=='his');
- const bets=D.bets.filter(b=>tab=='act'?!b.arch:!!b.arch).sort((a,b)=>tab=='act'?a.created-b.created:b.arch-a.arch);
- $('#app').innerHTML=(tab=='his'?stats():'')+(bets.length?bets.map(b=>view(b)).join(''):'<p class="sub emp">بلیتی نیست. با «افزودن بلیت» شروع کنید.</p>');
- if(dirty){dirty=0;save()}}
+        <!-- Form Builder Fields -->
+        <div id="ff" class="form-section" hidden>
+          <div class="row gap-3 mb-4">
+            <div class="form-group" style="flex:1;">
+              <label for="fh" class="form-label">تیم میزبان</label>
+              <input type="text" id="fh" class="input" placeholder="تیم میزبان">
+            </div>
+            <div class="form-group" style="flex:1;">
+              <label for="fa" class="form-label">تیم میهمان</label>
+              <input type="text" id="fa" class="input" placeholder="تیم میهمان">
+            </div>
+            <div class="form-group" style="flex:1;">
+              <label for="fo" class="form-label">ضریب</label>
+              <input type="number" id="fo" class="input" placeholder="ضریب" step="0.01" min="1">
+            </div>
+          </div>
+          <div class="row gap-3 mb-4">
+            <div class="form-group" style="flex:1;">
+              <label for="fc" class="form-label">نوع شرط</label>
+              <select id="fc" class="select"></select>
+            </div>
+            <div class="form-group" style="flex:1;">
+              <label for="fv" class="form-label">مقدار</label>
+              <input type="text" id="fv" class="input" placeholder="مقدار" hidden>
+            </div>
+          </div>
+          <div class="row gap-3 mb-4">
+            <div id="fcur" class="sub mut" style="flex:1;"></div>
+            <button type="button" id="fadd" class="btn btn-primary">+ شرط</button>
+          </div>
+          <div id="flist" class="space-y-2 max-h-60 overflow-auto"></div>
+        </div>
 
-// ---------- ورودی بلیت ----------
-const num=s=>parseFloat(String(s).replace(/,/g,''));
-function toPick(sel,h){const s=sel.trim(),m=s.match(/^(over|under)\s+([\d.]+)$/i);
- if(m)return m[1][0].toUpperCase()+m[2];if(/^draw$/i.test(s))return'X';
- const p=s.split(/ or /i);if(p.length==2)return/^draw$/i.test(p[0].trim())?'X2':'1X';
- return fold(s).trim()==fold(h).trim()?'1':'2'}
+        <!-- Paste Mode Textarea -->
+        <div id="tx-container">
+          <label for="tx" class="form-label">متن بلیت را اینجا بچسبانید</label>
+          <textarea id="tx" class="input" rows="12" placeholder="متن بلیت را همان‌طور که از سایت کپی کرده‌اید بچسبانید؛ چند بلیت پشت‌سرهم هم قبول است."></textarea>
+        </div>
 
-// ---- Bet Builder parser ----
-// Supports both formats: with asterisk (* Odds) and without (Odds)
-function parseBetBuilder(t){
-  const L=t.split('\n').map(s=>s.trim()).filter(s=>s);
-  // Check for Bet Builder signature - supports both *Odds and Odds formats
-  const hasBuilderHeader = L.some(s=>/^\*?\s*Odds/i.test(s)) && L.some(s=>/^\*?\s*Stake/i.test(s)) && L.some(s=>/^\*?\s*Potential win/i.test(s));
-  if(!hasBuilderHeader) return null;
+        <!-- Bet Builder Textarea -->
+        <div id="bb" class="form-section" hidden>
+          <label for="txb" class="form-label">متن Bet Builder</label>
+          <textarea id="txb" class="input" rows="12" placeholder="متن Bet Builder را اینجا بچسبانید"></textarea>
+          <div class="sub mut mt-2">فرمت: شرایط هر بازی (چند خط)، سپس خط تیم‌ها (Home - Away)، و در نهایت Odds / Stake USDT / Potential win USDT با مقادیر</div>
+        </div>
 
-  const oddsIdx = L.findIndex(s=>/^\*?\s*Odds/i.test(s));
-  const stakeIdx = L.findIndex(s=>/^\*?\s*Stake/i.test(s));
-  const winIdx = L.findIndex(s=>/^\*?\s*Potential win/i.test(s));
-  const headerEnd = Math.min(oddsIdx, stakeIdx, winIdx);
+        <div id="hint" class="sub mut mt-3" aria-live="polite"></div>
 
-  // Values are the lines AFTER all headers that start with optional * and a number
-  const valueLines = L.slice(headerEnd + 1).filter(s=>/^\*?\s*[\d.,]/.test(s));
-  let odds=1, stake=1, win=null;
-  if(valueLines.length >= 1) odds = num(valueLines[0].match(/^\*?\s*([\d.,]+)/)?.[1] || 1);
-  if(valueLines.length >= 2) stake = num(valueLines[1].match(/^\*?\s*([\d.,]+)/)?.[1] || 1);
-  if(valueLines.length >= 3) win = num(valueLines[2].match(/^\*?\s*([\d.,]+)/)?.[1] || null);
-  if(!win) win = +(stake*odds).toFixed(2);
+        <footer class="modal-footer" style="margin-top: var(--space-4); padding-top: var(--space-4); border-top: 1px solid var(--color-border-subtle);">
+          <button type="button" class="btn btn-primary btn-lg" id="ok" style="flex:1;">ثبت بلیت</button>
+          <button type="button" class="btn btn-secondary btn-lg" id="cl" style="flex:1;">بستن</button>
+        </footer>
+      </div>
+    </form>
+  </dialog>
 
-  const contentLines = L.slice(0, headerEnd);
-  // More comprehensive exclusion patterns for condition lines
-  const CONDITION_PATTERNS = [
-    'over', 'under', 'double chance', 'each team', 'total ', 'handicap', 'asian', 'draw', '1x2',
-    'corner', 'corners', 'card', 'cards', 'goal', 'goals', 'team corners', 'team corner',
-    'total corner', 'total corners', 'total card', 'total cards', 'total goal', 'total goals',
-    'asian total', 'asian handicap', '1st half', '2nd half', '1st', '2nd', 'half',
-    'both teams to score', 'btts', 'gg', 'ng', 'to qualify', 'to win', 'win either half',
-    'draw no bet', 'dnb', 'clean sheet', 'anytime scorer', 'first scorer', 'last scorer'
-  ].join('|');
-  const matches=[], currentConds=[];
-  for(const line of contentLines){
-    const isCondition = line.includes(' - ') && new RegExp(CONDITION_PATTERNS, 'i').test(line);
-    if(line.includes(' - ') && !/^\*/.test(line) && !isCondition){
-      if(currentConds.length>0){
-        matches.push({conds:[...currentConds], teamLine:line});
-        currentConds.length=0;
-      }else{
-        matches.push({conds:[], teamLine:line});
-      }
-    }else if(!/^\*/.test(line)){
-      currentConds.push(line);
-    }
-  }
-  if(currentConds.length>0){
-    matches.push({conds:[...currentConds], teamLine:null});
-  }
-  if(!matches.length) return null;
+  <!-- Live Result Dialog -->
+  <dialog id="ov" class="modal" role="dialog" aria-modal="true" aria-labelledby="ov-title">
+    <form onsubmit="return false" class="modal-content">
+      <header class="modal-header">
+        <h2 id="ov-title" class="modal-title"></h2>
+        <button type="button" class="modal-close" aria-label="Close">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+      </header>
+      <div class="modal-body">
+        <div class="row gap-3 mb-4">
+          <div class="form-group" style="flex:1;">
+            <label for="oh" class="form-label">گل میزبان</label>
+            <input type="number" id="oh" class="input" placeholder="گل میزبان" inputmode="numeric" min="0">
+          </div>
+          <div class="form-group" style="flex:1;">
+            <label for="oa" class="form-label">گل میهمان</label>
+            <input type="number" id="oa" class="input" placeholder="گل میهمان" inputmode="numeric" min="0">
+          </div>
+          <div class="form-group" style="flex:1;">
+            <label for="om" class="form-label">دقیقه (اختیاری)</label>
+            <input type="number" id="om" class="input" placeholder="دقیقه" inputmode="numeric" min="0" max="120">
+          </div>
+        </div>
+        <div class="row gap-3 mb-4">
+          <div class="form-group" style="flex:1;">
+            <label for="os" class="form-label">وضعیت</label>
+            <select id="os" class="select">
+              <option value="live">در حال انجام</option>
+              <option value="fin">پایان‌یافته (نتیجهٔ 90 دقیقه)</option>
+            </select>
+          </div>
+          <div class="form-group" style="flex:1;">
+            <label for="ow" class="form-label">برنده نهایی (برای شرط صعود)</label>
+            <select id="ow" class="select" hidden>
+              <option value="0">برندهٔ نهایی</option>
+              <option value="1">میزبان صعود کرد</option>
+              <option value="2">میهمان صعود کرد</option>
+            </select>
+          </div>
+        </div>
+        <div class="sm" style="color:var(--color-warning)" id="ovh"></div>
+        <footer class="modal-footer">
+          <button type="button" class="btn btn-primary" id="ovs">ذخیره</button>
+          <button type="button" class="btn btn-danger" id="ovc">حذف نتیجهٔ دستی</button>
+          <button type="button" class="btn btn-secondary" id="ovr">بازنشانی نتیجهٔ ذخیره‌شده</button>
+          <button type="button" class="btn btn-ghost" id="ovx">بستن</button>
+        </footer>
+      </div>
+    </form>
+  </dialog>
 
-  const legs = matches.map(m=>{
-    const k = m.teamLine ? m.teamLine.indexOf(' - ') : -1;
-    const home = k>0 ? m.teamLine.slice(0,k).trim() : 'Unknown';
-    const away = k>0 ? m.teamLine.slice(k+3).trim() : 'Unknown';
-    const pick = m.conds.length ? m.conds.join(' | ') : 'Bet Builder';
-    return {home, away, pick, odds: 1.0};
-  });
+  <!-- Cashout Calculator Dialog -->
+  <dialog id="co" class="modal modal-sm" role="dialog" aria-modal="true" aria-labelledby="co-title">
+    <form onsubmit="return false" class="modal-content">
+      <header class="modal-header">
+        <h2 id="co-title" class="modal-title"></h2>
+        <button type="button" class="modal-close" aria-label="Close">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+      </header>
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="cov" class="form-label">پیشنهاد سایت (USDT)</label>
+          <input type="number" id="cov" class="input" placeholder="مبلغ پیشنهادی" step="0.01" min="0">
+        </div>
+        <div id="cor" class="sub" style="line-height:2; min-height:80px;"></div>
+      </div>
+      <footer class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="cox">بستن</button>
+      </footer>
+    </form>
+  </dialog>
 
-  if(legs.length>0 && odds>1){
-    const legOdds = +Math.pow(odds, 1/legs.length).toFixed(2);
-    legs.forEach(l=>l.odds=legOdds);
-  }
+  <!-- Match Mapping Dialog -->
+  <dialog id="mp" class="modal" role="dialog" aria-modal="true" aria-labelledby="mp-title">
+    <form onsubmit="return false" class="modal-content">
+      <header class="modal-header">
+        <h2 id="mp-title" class="modal-title"></h2>
+        <button type="button" class="modal-close" aria-label="Close">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+      </header>
+      <div class="modal-body">
+        <div class="sm mut mb-4">بازی را از نتایج منابع انتخاب کنید تا برای همهٔ بلیت‌ها یادش بماند.</div>
+        <div class="form-group">
+          <label for="mq" class="form-label">جستجوی اسم تیم در منابع</label>
+          <input type="text" id="mq" class="input" placeholder="جستجوی اسم تیم در منابع">
+        </div>
+        <div id="ml" class="space-y-2 max-h-96 overflow-auto"></div>
+      </div>
+      <footer class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="mc">بستن</button>
+      </footer>
+    </form>
+  </dialog>
 
-  const W = [];
-  if(legs.length>0 && odds>1){
-    const pd = +legs.reduce((p,l)=>p*l.odds,1).toFixed(2);
-    if(Math.abs(pd-odds)/odds > 0.04){
-      W.push(`توزیع تقریبی ضریب: هر بازی ${legs[0].odds} (ضریب کل ${pd} vs اصلی ${odds})`);
-    }
-  }
+  <!-- Settings/Telegram Dialog -->
+  <dialog id="sg" class="modal" role="dialog" aria-modal="true" aria-labelledby="sg-title">
+    <form onsubmit="return false" class="modal-content">
+      <header class="modal-header">
+        <h2 id="sg-title" class="modal-title">اعلان و ربات تلگرام</h2>
+        <button type="button" class="modal-close" aria-label="Close">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+      </header>
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="tt" class="form-label">توکن ربات</label>
+          <input type="password" id="tt" class="input" placeholder="توکن ربات">
+        </div>
+        <div class="form-group">
+          <label for="tc" class="form-label">Chat ID</label>
+          <input type="text" id="tc" class="input" placeholder="Chat ID">
+        </div>
+        <div class="row gap-3 mb-4">
+          <label class="checkbox-label" style="flex:1;"><input type="checkbox" id="ton" class="checkbox"> اعلان‌های خودکار فعال باشد</label>
+          <label class="checkbox-label" style="flex:1;"><input type="checkbox" id="tst" class="checkbox"> شروع بازی</label>
+          <label class="checkbox-label" style="flex:1;"><input type="checkbox" id="tgl" class="checkbox"> گل</label>
+          <label class="checkbox-label" style="flex:1;"><input type="checkbox" id="ten" class="checkbox"> پایان بازی</label>
+        </div>
+        <div class="form-group">
+          <label for="tsm" class="form-label">خلاصهٔ دوره‌ای</label>
+          <select id="tsm" class="select">
+            <option value="0">خاموش</option>
+            <option value="15">هر 15 دقیقه</option>
+            <option value="30">هر 30 دقیقه</option>
+            <option value="60">هر ساعت</option>
+          </select>
+        </div>
+        <div class="sm mut" id="tlr"></div>
+        <div class="sm" style="color:var(--color-error)" id="tmsg"></div>
+        <footer class="modal-footer">
+          <button type="button" class="btn btn-primary" id="tsv">ذخیره</button>
+          <button type="button" class="btn btn-secondary" id="tts">پیام آزمایشی</button>
+          <button type="button" class="btn btn-secondary" id="trn">اجرای آزمایشی اعلان‌ها</button>
+          <button type="button" class="btn btn-secondary" id="thk">فعال‌سازی دستورات ربات</button>
+          <button type="button" class="btn btn-ghost" id="tcl">بستن</button>
+        </footer>
+      </div>
+    </form>
+  </dialog>
 
-  return {
-    name: 'Bet Builder ' + legs.length,
-    stake, odds, win, cash: null, legs, _w: W.join('\n')
-  };
-}
+  <!-- Backup Dialog -->
+  <dialog id="bk" class="modal modal-sm" role="dialog" aria-modal="true" aria-labelledby="bk-title">
+    <form onsubmit="return false" class="modal-content">
+      <header class="modal-header">
+        <h2 id="bk-title" class="modal-title">پشتیبان‌های روزانه</h2>
+        <button type="button" class="modal-close" aria-label="Close">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+      </header>
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="bkd" class="form-label">تاریخ پشتیبان</label>
+          <select id="bkd" class="select"></select>
+        </div>
+        <div class="sub mut" id="bkm"></div>
+      </div>
+      <footer class="modal-footer">
+        <button type="button" class="btn btn-primary" id="bkg">بازیابی (ادغام)</button>
+        <button type="button" class="btn btn-ghost" id="bkx">بستن</button>
+      </footer>
+    </form>
+  </dialog>
 
-function parseBlock(t){
- const L=t.split('\n').map(s=>s.trim().replace(/^[*•]\s*/,'')).filter(Boolean),legs=[];
- L.forEach((s,i)=>{if(i>=3&&/^(1x2|double chance|asian total)$/i.test(L[i-1])&&/^\d+(\.\d+)?(\(\d+:\d+\))?$/.test(L[i-2])&&s.includes(' - ')){
-  const k=s.indexOf(' - '),home=s.slice(0,k).trim(),away=s.slice(k+3).trim();
-  legs.push({home,away,pick:toPick(L[i-3],home),odds:parseFloat(L[i-2])})}});
- if(!legs.length)return null;
- const w=L.findIndex(s=>/^Potential win/i.test(s)),n=w>=0?L.slice(w+1).filter(s=>/^[\d.,]+$/.test(s)).map(num):[];
- const c=L.findIndex(s=>/^Cash out$/i.test(s)),cv=c>=0?num(L[c+1]):NaN;
- const odds=n[0]||+legs.reduce((p,l)=>p*l.odds,1).toFixed(2),stake=n[1]||1;
- return{name:L.find(s=>/^multi\s+\d+/i.test(s))||'multi '+legs.length,stake,odds,win:n[2]||+(stake*odds).toFixed(2),cash:isNaN(cv)?null:cv,legs}}
-function parseManual(t){
- const legs=t.split('\n').map(s=>s.split('|').map(x=>x.trim())).filter(a=>a.length==3&&a[0].includes(' - ')).map(a=>{const k=a[0].indexOf(' - ');
-  return{home:a[0].slice(0,k).trim(),away:a[0].slice(k+3).trim(),pick:a[1].toUpperCase(),odds:num(a[2])}});
- if(!legs.length)return null;
- const odds=num($('#od').value)||+legs.reduce((p,l)=>p*l.odds,1).toFixed(2),stake=num($('#sk').value)||1;
- return{name:$('#nm').value||'بلیت',stake,odds,win:+(stake*odds).toFixed(2),cash:null,legs}}
-const CT=[['1','برد میزبان'],['2','برد میهمان'],['X','مساوی'],['1X','میزبان یا مساوی'],['X2','مساوی یا میهمان'],['12','بدون مساوی'],['O','مجموع گل بالای … (مقدار: 2.5)'],['U','مجموع گل زیر … (مقدار: 3.5)'],['HO','گل میزبان بالای …'],['HU','گل میزبان زیر …'],['AO','گل میهمان بالای …'],['AU','گل میهمان زیر …'],['BY','هر دو تیم گل می‌زنند'],['BN','حداقل یک تیم گل نمی‌زند'],['T','تعداد دقیق کل گل … (مقدار: 3)'],['S','نتیجهٔ دقیق … (مقدار: 2-1)'],['AH1','هندیکپ میزبان … (مقدار: -1.5)'],['AH2','هندیکپ میهمان … (مقدار: +0.5)']];
-const needV=c=>!['1','2','X','1X','X2','12','BY','BN'].includes(c);
-let CUR=[],DL=[];
-function mk(c,v){v=v.trim();if(!needV(c))return c;if(!v)return null;
- if(c=='S')return/^\d+-\d+$/.test(v)?'S'+v:null;if(!/^[+-]?[\d.]+$/.test(v))return null;
- return c.startsWith('AH')?c+(/^[+-]/.test(v)?v:'+'+v):c+v}
-const fl=()=>({home:$('#fh').value.trim()||'میزبان',away:$('#fa').value.trim()||'میهمان'});
-function flist(){$('#fcur').textContent=CUR.length?'شرط‌ها (همه باید برقرار باشند): '+CUR.map(p=>pt1(p,fl())).join(' + '):'';
- $('#flist').innerHTML=DL.map((l,i)=>`${i+1}. ${esc(l.home)} – ${esc(l.away)}: ${esc(pickTxt(l.pick,l))} (${l.odds}) <a href="#" data-r="${i}">حذف</a>`).join('<br>')}
-function mkBet(legs){const odds=num($('#od').value)||+legs.reduce((p,l)=>p*l.odds,1).toFixed(2),stake=num($('#sk').value)||1;
- return{name:$('#nm').value||'multi '+legs.length,stake,odds,win:+(stake*odds).toFixed(2),cash:null,legs}}
-function setMode(){const m=$('#md').value;$('#mf').hidden=m=='p';$('#ff').hidden=m!='f';$('#tx').hidden=m=='f'||m=='b';$('#bb').hidden=m!='b';
- $('#hint').textContent=m=='f'?'برای هر بازی: نام تیم‌ها، ضریب و یک یا چند شرط (ترکیبی) را بزنید، سپس «افزودن این بازی».':m=='m'?'هر خط: Home - Away | پیش‌بینی | ضریب (کدها: 1، X، 2، 1X، X2، O2.5، U3.5، BY، T3، S2-1، 1&O2.5 …)':m=='b'?'متن Bet Builder را بچسبانید. فرمت: شرایط هر بازی (چند خط)، سپس خط تیم‌ها (Home - Away)، و در نهایت * Odds / * Stake USDT / * Potential win USDT با مقادیر.':'متن بلیت را همان‌طور که از سایت کپی کرده‌اید بچسبانید؛ چند بلیت پشت‌سرهم هم قبول است.'}
+  <!-- File Input -->
+  <input type="file" id="fi" accept="application/json,.json" hidden>
 
-// ---------- رویدادها ----------
-CT.forEach(c=>$('#fc').add(new Option(c[1],c[0])));
-$('#fc').onchange=()=>{$('#fv').hidden=!needV($('#fc').value)};
-$('#fadd').onclick=()=>{const p=mk($('#fc').value,$('#fv').value);if(!p){$('#hint').textContent='مقدار شرط نامعتبر است.';return}CUR.push(p);$('#fv').value='';flist()};
-$('#fleg').onclick=()=>{const o=num($('#fo').value),{home,away}=fl();
- if(!$('#fh').value.trim()||!$('#fa').value.trim()||!(o>1)||!CUR.length){$('#hint').textContent='نام هر دو تیم، ضریب (بزرگ‌تر از ۱) و حداقل یک شرط لازم است.';return}
- DL.push({home,away,pick:CUR.join('&'),odds:o});CUR=[];['fh','fa','fo','fv'].forEach(k=>$('#'+k).value='');flist()};
-$('#flist').addEventListener('click',e=>{const r=e.target.dataset.r;if(r==null)return;e.preventDefault();DL.splice(+r,1);flist()});
-$('#md').onchange=setMode;$('#add').onclick=()=>{setMode();$('#fc').onchange();$('#ad').showModal()};$('#cl').onclick=()=>$('#ad').close();
-$('#ok').onclick=()=>{const m=$('#md').value;let R;
- if(m=='f'){if(!DL.length){$('#hint').textContent='حداقل یک بازی به بلیت اضافه کنید.';return}R=[mkBet(DL)]}
- else if(m=='b'){const bb=parseBetBuilder($('#txb').value.trim());if(!bb){$('#hint').textContent='فرمت Bet Builder معتبر نیست.';return}R=[bb];}
- else {
-    const txt = $('#tx').value.trim();
-    // Try Bet Builder parser first (doesn't use Active separators)
-    const bb = parseBetBuilder(txt);
-    if (bb) R = [bb];
-    else R = txt.split(/^\s*Active\s*$/mi).map(parseBlock);
-  }
- const ok=R.filter(Boolean);if(!ok.length){$('#hint').textContent='هیچ بازی‌ای تشخیص داده نشد؛ قالب را بررسی کنید.';return}
- ok.forEach((b,i)=>D.bets.push({...b,id:Date.now().toString(36)+i+Math.random().toString(36).slice(2,5),created:Date.now()+i}));
- $('#tx').value='';$('#txb').value='';DL=[];CUR=[];flist();$('#ad').close();save();live()};
-$('#t1').onclick=()=>{tab='act';render()};$('#t2').onclick=()=>{tab='his';render()};$('#rf').onclick=live;
-$('#exp').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(D,null,1)],{type:'application/json'}));a.download='betslip-backup.json';a.click()};
-$('#lf').onsubmit=e=>{e.preventDefault();KEY=$('#pw').value;ls.s('pw',KEY);$('#lg').close();init()};
-const link=t=>location.origin+BASE+'/?s='+t;
-const copy=u=>navigator.clipboard?navigator.clipboard.writeText(u).then(()=>alert('لینک کپی شد:\n'+u),()=>prompt('لینک:',u)):prompt('لینک:',u);
-$('#app').addEventListener('click',e=>{
- if(PUB)return;
- const s=e.target.closest('.sc'),a=e.target.closest('[data-a]');
- if(s){const b=D.bets.find(x=>x.id==s.dataset.b),l=b.legs[s.dataset.l];
-  const v=prompt(l.home+' – '+l.away+'\nنتیجه (مثال 2-1 زنده، 2-1 f پایان‌یافته). خالی = حذف دستی، x = حذف نتیجهٔ ذخیره‌شده',l.ov?l.ov.h+'-'+l.ov.a:'');
-  if(v===null)return;const m=v.match(/(\d+)\s*-\s*(\d+)\s*(f?)/i);
-  if(m)l.ov={h:+m[1],a:+m[2],f:!!m[3]};else{delete l.ov;if(v.trim()=='x')delete l.fin}
-  save();render();return}
- if(a){const b=D.bets.find(x=>x.id==a.dataset.b),k=a.dataset.a;
-  if(k=='tg'){OPEN.has(b.id)?OPEN.delete(b.id):OPEN.add(b.id);ls.s('open',JSON.stringify([...OPEN]));render();return}
-  if(k=='sh'){if(!b.share){b.share=[...crypto.getRandomValues(new Uint8Array(12))].map(x=>x.toString(16).padStart(2,'0')).join('');save()}copy(link(b.share));render();return}
-  if(k=='us'){if(!confirm('لینک عمومی این بلیت غیرفعال شود؟'))return;delete b.share}
-  if(k=='del'){if(!confirm('این بلیت حذف شود؟'))return;D.bets=D.bets.filter(x=>x!=b)}
-  if(k=='ar'){if(b._st=='open'&&!confirm('هنوز تمام نشده؛ بایگانی شود؟'))return;b.arch=Date.now();b.res=b._st}
-  if(k=='un'){delete b.arch;delete b.res}
-  save();render()}});
-async function initPub(){try{const j=await(await fetch(BASE+'/api/share?t='+encodeURIComponent(PUB))).json();if(!j.bet)throw 0;
- D={bets:[{...j.bet,id:'pub'}]};document.title=j.bet.name+' – Betslip';document.body.classList.add('pub');render();await live();setInterval(live,60000)}
- catch(e){$('#app').innerHTML='<p class="sub emp">این لینک معتبر نیست یا اشتراک‌گذاری آن لغو شده است.</p>'}}
-PUB?initPub():init();
-</script>
+  <!-- Toast Container -->
+  <div id="toast-container" class="toast-container" aria-live="polite" aria-atomic="true"></div>
+
+  <!-- Theme Toggle Script (run early) -->
+  <script>
+    (function() {
+      const savedTheme = localStorage.getItem('theme');
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      const isDark = savedTheme === 'dark' || (!savedTheme && prefersDark);
+      document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+    })();
+  </script>
+
+  <!-- Main Application Script -->
+  <script src="app.js"></script>
 </body>
 </html>
