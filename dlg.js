@@ -6,11 +6,13 @@ const visOpts = (v) => Object.entries(VIS).map(([k, t]) => `<option value="${k}"
 function setVis(b, v) { b.vis = v; if (v == 'private') delete b.share; else if (!b.share) b.share = tok(); }
 function mountDialogs() {
   $('#dlg').innerHTML = `<dialog id="lg"><form id="lf"><h3 id="lt">ورود</h3><input id="un" placeholder="نام کاربری (انگلیسی)" autocomplete="username" required><input id="pw" type="password" placeholder="رمز (حداقل 8 کاراکتر)" autocomplete="current-password" required><input id="iv" placeholder="کد دعوت" hidden><div class="sm" style="color:var(--r)" id="le"></div><button class="btn p">ادامه</button><button type="button" class="lnk" id="sw">حساب ندارید؟ ثبت‌نام</button></form></dialog>
-  <dialog id="ad"><form onsubmit="return false"><h3 id="adt">افزودن بلیت</h3><div class="seg2" id="admode"><button type="button" data-m="p" class="on">چسباندن متن</button><button type="button" data-m="f">فرم بازی‌به‌بازی</button><button type="button" data-m="m">خطی</button></div>
+  <dialog id="ad"><form onsubmit="return false"><h3 id="adt">افزودن بلیت</h3><div class="seg2" id="admode"><button type="button" data-m="p" class="on">چسباندن متن</button><button type="button" data-m="f">فرم بازی‌به‌بازی</button><button type="button" data-m="m">خطی</button><button type="button" data-m="b">Bet Builder</button></div>
   <input id="nm" placeholder="نام بلیت (اختیاری)"><div class="row"><input id="tgs" placeholder="برچسب‌ها (با کاما: ریسکی، امن)"><select id="vs">${visOpts('private')}</select></div><input id="nt" placeholder="یادداشت (اختیاری)">
   <div id="mf" class="row" hidden><input id="sk" inputmode="decimal" placeholder="مبلغ (USDT)"><input id="od" inputmode="decimal" placeholder="ضریب کل (خالی = حاصل‌ضرب)"><input id="ch" inputmode="decimal" placeholder="کش‌اوت"></div>
   <div id="ff" hidden><div class="row"><input id="fh" placeholder="تیم میزبان"><input id="fa" placeholder="تیم میهمان"><input id="fo" inputmode="decimal" placeholder="ضریب"></div><div class="row"><select id="fc"></select><input id="fv" placeholder="مقدار"><button type="button" class="btn" id="fadd">+ شرط</button></div><div class="mut sm" id="fcur"></div><button type="button" class="btn" id="fleg">افزودن این بازی به بلیت</button><div class="sm" id="flist"></div></div>
-  <textarea id="tx" rows="11"></textarea><div class="sm mut" id="hint"></div><div class="row"><button type="button" class="btn p" id="ok">ثبت بلیت</button><button type="button" class="btn" id="cl">بستن</button></div></form></dialog>
+  <textarea id="tx" rows="11"></textarea>
+<div id="bb" hidden><textarea id="txb" rows="11" placeholder="متن Bet Builder را اینجا بچسبانید"></textarea><div class="sm mut">فرمت: شرایط هر بازی (چند خط)، سپس خط تیم‌ها (Home - Away)، و در نهایت * Odds / * Stake USDT / * Potential win USDT با مقادیر</div></div>
+<div class="sm mut" id="hint"></div><div class="row"><button type="button" class="btn p" id="ok">ثبت بلیت</button><button type="button" class="btn" id="cl">بستن</button></div></form></dialog>
   <dialog id="ov"><form onsubmit="return false"><h3 id="ovt"></h3><div class="row"><input id="oh" inputmode="numeric" placeholder="گل میزبان"><input id="oa" inputmode="numeric" placeholder="گل میهمان"><input id="om" inputmode="numeric" placeholder="دقیقه (اختیاری)"></div><select id="os"><option value="live">در حال انجام</option><option value="fin">پایان‌یافته (نتیجهٔ 90 دقیقه)</option></select><select id="ow" hidden><option value="0">برندهٔ نهایی (برای شرط صعود)</option><option value="1">میزبان صعود کرد</option><option value="2">میهمان صعود کرد</option></select><div class="sm" style="color:var(--o)" id="ovh"></div><div class="row"><button type="button" class="btn p" id="ovs">ذخیره</button><button type="button" class="btn" id="ovc">حذف نتیجهٔ دستی</button><button type="button" class="btn" id="ovr">بازنشانی نتیجهٔ ذخیره‌شده</button><button type="button" class="lnk" id="ovx">بستن</button></div></form></dialog>
   <dialog id="co"><form onsubmit="return false"><h3 id="cot"></h3><input id="cov" inputmode="decimal" placeholder="پیشنهاد کش‌اوت سایت (USDT)"><div id="cor" class="sm" style="line-height:2"></div><button type="button" class="btn" id="cox">بستن</button></form></dialog>
   <dialog id="mp"><form onsubmit="return false"><h3 id="mt"></h3><div class="sm mut">بازی را از نتایج منابع انتخاب کنید تا برای همهٔ بلیت‌ها یادش بماند.</div><input id="mq" placeholder="جستجوی اسم تیم در منابع"><div id="ml"></div><button type="button" class="btn" id="mc">بستن</button></form></dialog>
@@ -37,9 +39,9 @@ function flist() {
 }
 function edMode(m) {
   ED.m = m; $$('#admode button').forEach((b) => b.classList.toggle('on', b.dataset.m == m));
-  $('#mf').hidden = m == 'p'; $('#ff').hidden = m != 'f'; $('#tx').hidden = m == 'f'; $('#admode').hidden = !!ED.edit;
+  $('#mf').hidden = m == 'p'; $('#ff').hidden = m != 'f'; $('#tx').hidden = m == 'f' || m == 'b'; $('#bb').hidden = m != 'b'; $('#admode').hidden = !!ED.edit;
   $('#nm').placeholder = m == 'p' ? 'نام بلیت (اختیاری؛ خالی = نام سایت شرط‌بندی)' : 'نام بلیت';
-  $('#hint').textContent = ED.edit ? 'بازی را «ویرایش» یا «حذف» کنید یا بازی تازه اضافه کنید. برای محاسبهٔ خودکار ضریب از روی بازی‌ها، فیلد ضریب کل را خالی بگذارید.' : m == 'f' ? 'برای هر بازی: نام تیم‌ها، ضریب و یک یا چند شرط (ترکیبی) را بزنید، سپس «افزودن این بازی».' : m == 'm' ? 'هر خط: Home - Away | پیش‌بینی | ضریب (کدها: 1، X، 2، 1X، X2، O2.5، U3.5، BY، T3، S2-1، Q1، 1&O2.5 …)' : 'متن بلیت را همان‌طور که از سایت کپی کرده‌اید بچسبانید؛ چند بلیت پشت‌سرهم هم قبول است.';
+  $('#hint').textContent = ED.edit ? 'بازی را «ویرایش» یا «حذف» کنید یا بازی تازه اضافه کنید. برای محاسبهٔ خودکار ضریب از روی بازی‌ها، فیلد ضریب کل را خالی بگذارید.' : m == 'f' ? 'برای هر بازی: نام تیم‌ها، ضریب و یک یا چند شرط (ترکیبی) را بزنید، затем «افزودن این بازی».' : m == 'm' ? 'هر خط: Home - Away | پیش‌بینی | ضریب (کدها: 1، X، 2، 1X، X2، O2.5، U3.5، BY، T3، S2-1، Q1، 1&O2.5 …)' : m == 'b' ? 'متن Bet Builder را بچسبانید. فرمت: شرایط هر بازی (چند خط)، سپس خط تیم‌ها (Home - Away)، و در نهایت * Odds / * Stake USDT / * Potential win USDT با مقادیر.' : 'متن بلیت را همان‌طور که از سایت کپی کرده‌اید بچسبانید؛ چند بلیت پشت‌سرهم هم قبول است.';
 }
 function edReset() { ED.DL = []; ED.CUR = []; ED.EL = null; ['nm', 'sk', 'od', 'ch', 'tx', 'fh', 'fa', 'fo', 'fv', 'tgs', 'nt'].forEach((k) => ($('#' + k).value = '')); $('#vs').value = (S.prof && S.prof.dvis) || 'private'; $('#adt').textContent = ED.edit ? 'ویرایش بلیت' : 'افزودن بلیت'; $('#ok').textContent = ED.edit ? 'ذخیره تغییرات' : 'ثبت بلیت'; flist(); }
 function openEditor(b) {
@@ -58,6 +60,7 @@ function edSave() {
   let Rs;
   if (ED.m == 'f') { if (!ED.DL.length) return H('حداقل یک بازی به بلیت اضافه کنید.'); Rs = [mkBet(ED.DL)]; }
   else if (ED.m == 'm') { Rs = [parseManual($('#tx').value, { name: $('#nm').value.trim(), stake: $('#sk').value, odds: $('#od').value })]; if (Rs[0]) Rs[0].cash = $('#ch').value ? num($('#ch').value) : null; }
+  else if (ED.m == 'b') { const bb = parseBetBuilder($('#txb').value.trim()); if (!bb) return H('فرمت Bet Builder معتبر نیست.'); Rs = [bb]; }
   else {
     const txt = $('#tx').value.trim();
     // Try Bet Builder parser first (doesn't use Active separators)

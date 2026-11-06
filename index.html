@@ -69,7 +69,7 @@ textarea{direction:ltr;font-family:ui-monospace,Menlo,monospace;font-size:12px}
 <dialog id="lg"><form id="lf"><b>ورود</b><input id="pw" type="password" placeholder="رمز" autocomplete="current-password" required><button class="pri">ورود</button></form></dialog>
 <dialog id="ad"><form onsubmit="return false">
  <b>افزودن بلیت</b>
- <select id="md"><option value="p">چسباندن متن بلیت (از سایت شرط‌بندی)</option><option value="f">فرم دستی، بازی به بازی</option><option value="m">متنی دستی (هر خط یک بازی)</option></select>
+ <select id="md"><option value="p">چسباندن متن بلیت (از سایت شرط‌بندی)</option><option value="f">فرم دستی، بازی به بازی</option><option value="m">متنی دستی (هر خط یک بازی)</option><option value="b">Bet Builder</option></select>
  <div id="mf" hidden><input id="nm" placeholder="نام بلیت" style="margin-bottom:8px"><input id="sk" placeholder="مبلغ (USDT)" style="margin-bottom:8px"><input id="od" placeholder="ضریب کل (خالی = حاصل‌ضرب ضرایب)"></div>
  <div id="ff" hidden>
   <div class="row"><input id="fh" placeholder="تیم میزبان"><input id="fa" placeholder="تیم میهمان"><input id="fo" placeholder="ضریب"></div>
@@ -79,6 +79,7 @@ textarea{direction:ltr;font-family:ui-monospace,Menlo,monospace;font-size:12px}
   <div class="sub" id="flist"></div>
  </div>
  <textarea id="tx" rows="12"></textarea>
+ <div id="bb" hidden><textarea id="txb" rows="12" placeholder="متن Bet Builder را اینجا بچسبانید"></textarea><div class="sub mut">فرمت: شرایط هر بازی (چند خط)، سپس خط تیم‌ها (Home - Away)، و در نهایت * Odds / * Stake USDT / * Potential win USDT با مقادیر</div></div>
  <div class="sub" id="hint"></div>
  <div style="display:flex;gap:8px"><button type="button" class="pri" id="ok" style="width:auto">ثبت بلیت</button><button type="button" id="cl" style="width:auto">بستن</button></div>
 </form></dialog>
@@ -300,8 +301,8 @@ function flist(){$('#fcur').textContent=CUR.length?'شرط‌ها (همه بای
  $('#flist').innerHTML=DL.map((l,i)=>`${i+1}. ${esc(l.home)} – ${esc(l.away)}: ${esc(pickTxt(l.pick,l))} (${l.odds}) <a href="#" data-r="${i}">حذف</a>`).join('<br>')}
 function mkBet(legs){const odds=num($('#od').value)||+legs.reduce((p,l)=>p*l.odds,1).toFixed(2),stake=num($('#sk').value)||1;
  return{name:$('#nm').value||'multi '+legs.length,stake,odds,win:+(stake*odds).toFixed(2),cash:null,legs}}
-function setMode(){const m=$('#md').value;$('#mf').hidden=m=='p';$('#ff').hidden=m!='f';$('#tx').hidden=m=='f';
- $('#hint').textContent=m=='f'?'برای هر بازی: نام تیم‌ها، ضریب و یک یا چند شرط (ترکیبی) را بزنید، سپس «افزودن این بازی».':m=='m'?'هر خط: Home - Away | پیش‌بینی | ضریب (کدها: 1، X، 2، 1X، X2، O2.5، U3.5، BY، T3، S2-1، 1&O2.5 …)':'متن بلیت را همان‌طور که از سایت کپی کرده‌اید بچسبانید؛ چند بلیت پشت‌سرهم هم قبول است.'}
+function setMode(){const m=$('#md').value;$('#mf').hidden=m=='p';$('#ff').hidden=m!='f';$('#tx').hidden=m=='f'||m=='b';$('#bb').hidden=m!='b';
+ $('#hint').textContent=m=='f'?'برای هر بازی: نام تیم‌ها، ضریب و یک یا چند شرط (ترکیبی) را بزنید، سپس «افزودن این بازی».':m=='m'?'هر خط: Home - Away | پیش‌بینی | ضریب (کدها: 1، X، 2، 1X، X2، O2.5، U3.5، BY، T3، S2-1، 1&O2.5 …)':m=='b'?'متن Bet Builder را بچسبانید. فرمت: شرایط هر بازی (چند خط)، سپس خط تیم‌ها (Home - Away)، و در نهایت * Odds / * Stake USDT / * Potential win USDT با مقادیر.':'متن بلیت را همان‌طور که از سایت کپی کرده‌اید بچسبانید؛ چند بلیت پشت‌سرهم هم قبول است.'}
 
 // ---------- رویدادها ----------
 CT.forEach(c=>$('#fc').add(new Option(c[1],c[0])));
@@ -314,6 +315,7 @@ $('#flist').addEventListener('click',e=>{const r=e.target.dataset.r;if(r==null)r
 $('#md').onchange=setMode;$('#add').onclick=()=>{setMode();$('#fc').onchange();$('#ad').showModal()};$('#cl').onclick=()=>$('#ad').close();
 $('#ok').onclick=()=>{const m=$('#md').value;let R;
  if(m=='f'){if(!DL.length){$('#hint').textContent='حداقل یک بازی به بلیت اضافه کنید.';return}R=[mkBet(DL)]}
+ else if(m=='b'){const bb=parseBetBuilder($('#txb').value.trim());if(!bb){$('#hint').textContent='فرمت Bet Builder معتبر نیست.';return}R=[bb];}
  else {
     const txt = $('#tx').value.trim();
     // Try Bet Builder parser first (doesn't use Active separators)
@@ -323,7 +325,7 @@ $('#ok').onclick=()=>{const m=$('#md').value;let R;
   }
  const ok=R.filter(Boolean);if(!ok.length){$('#hint').textContent='هیچ بازی‌ای تشخیص داده نشد؛ قالب را بررسی کنید.';return}
  ok.forEach((b,i)=>D.bets.push({...b,id:Date.now().toString(36)+i+Math.random().toString(36).slice(2,5),created:Date.now()+i}));
- $('#tx').value='';DL=[];CUR=[];flist();$('#ad').close();save();live()};
+ $('#tx').value='';$('#txb').value='';DL=[];CUR=[];flist();$('#ad').close();save();live()};
 $('#t1').onclick=()=>{tab='act';render()};$('#t2').onclick=()=>{tab='his';render()};$('#rf').onclick=live;
 $('#exp').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(D,null,1)],{type:'application/json'}));a.download='betslip-backup.json';a.click()};
 $('#lf').onsubmit=e=>{e.preventDefault();KEY=$('#pw').value;ls.s('pw',KEY);$('#lg').close();init()};
