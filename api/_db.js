@@ -76,6 +76,7 @@ const userSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 const betSchema = new mongoose.Schema({
+  _id: { type: String },
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
   name: { type: String, default: '' },
   stake: { type: Number, default: 0 },
